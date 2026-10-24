@@ -1,0 +1,11 @@
+node_modules
+dist
+.wrangler
+.dev.vars
+*.tsbuildinfo
+.vite
+playwright-report
+test-results
+blob-report
+lighthouse-report.json
+worker-configuration.d.ts

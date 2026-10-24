@@ -1,0 +1,222 @@
+@import "tailwindcss";
+@source "../../index.html";
+
+/* Oktah y Caros son archivos Fontspring DEMO. Sustituir por la licencia web antes de publicar el repositorio. */
+@font-face {
+  font-family: "Oktah";
+  src: url("/fonts/oktah.woff2?v=2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Caros";
+  src: url("/fonts/caros.woff2?v=2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Aaleyah";
+  src: url("/fonts/aaleyah.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-display: "Oktah", "Palatino Linotype", Palatino, serif;
+  --font-sans: "Caros", "Segoe UI", sans-serif;
+  --font-script: "Aaleyah", "Segoe Script", cursive;
+  --color-paper: #f1f1ef;
+  --color-sand: #cbc4b5;
+  --color-mist: #d0dce9;
+  --color-slate: #8092a4;
+  --color-ink: #4a6e89;
+  --color-ink-deep: #243e52;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink-deep);
+    font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: 0;
+  transform: translateY(-120%);
+  background: white;
+  padding: 0.5rem 0.75rem;
+  z-index: 40;
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+.price {
+  font-family: Arial, "Segoe UI", sans-serif !important;
+}
+
+.cart-pop {
+  animation: cart-pop 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.added-note {
+  animation: added-note 1.6s ease forwards;
+}
+
+@keyframes cart-pop {
+  0% {
+    transform: scale(0.7);
+  }
+  45% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes added-note {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  12% {
+    opacity: 1;
+    transform: none;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.cart-flyer {
+  position: fixed;
+  z-index: 70;
+  max-width: 11rem;
+  padding: 0.45rem 0.8rem;
+  overflow: hidden;
+  border: 1px solid #cbc4b5;
+  border-radius: 999px;
+  background: #f1f1ef;
+  color: #243e52;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-shadow: 0 12px 28px rgb(36 62 82 / 28%);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: transform 0.55s cubic-bezier(0.45, 0, 0.2, 1), opacity 0.55s ease;
+}
+
+.menu-tile {
+  border: 1px solid #cbc4b5;
+  background: white;
+  box-shadow: 0 8px 20px rgb(36 62 82 / 12%);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.menu-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgb(36 62 82 / 14%);
+}
+
+.menu-shade {
+  perspective: 1400px;
+  animation: menu-shade 0.4s ease;
+}
+
+.menu-shade.is-leaving {
+  animation: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.menu-card {
+  transform-origin: center center;
+  will-change: transform;
+  box-shadow: 0 8px 20px rgb(36 62 82 / 12%);
+  animation: menu-card 0.68s cubic-bezier(0.22, 0.75, 0.2, 1) both;
+}
+
+.menu-card.is-leaving {
+  animation: none;
+  will-change: auto;
+  transition: transform 0.42s cubic-bezier(0.22, 0.75, 0.2, 1), opacity 0.42s ease;
+}
+
+@keyframes menu-shade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes menu-card {
+  from {
+    transform: translate3d(0, 20px, 0) scale(0.78) rotateY(-70deg);
+  }
+  to {
+    transform: translate3d(0, 0, 0) scale(1) rotateY(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-shade,
+  .menu-card,
+  .menu-tile,
+  .cart-pop,
+  .added-note,
+  .cart-flyer {
+    animation: none;
+    transition: none;
+  }
+
+  .menu-tile:hover {
+    transform: none;
+  }
+}
+
+@utility sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,0 +1,41 @@
+{
+  "name": "amaria",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && wrangler deploy",
+    "test": "vitest run",
+    "test:e2e": "wrangler d1 migrations apply amaria --local && playwright test",
+    "typecheck": "tsc -b --pretty false",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "hono": "^4.13.13",
+    "preact": "^11.0.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.4",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@cloudflare/vite-plugin": "^1.65.0",
+    "@cloudflare/vitest-plugin": "^1.4.7",
+    "@cloudflare/vitest-pool-workers": "^0.23.0",
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "@playwright/test": "^1.64.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^6.4.5",
+    "vitest": "^4.1.12",
+    "wrangler": "^4.86.0"
+  }
+}

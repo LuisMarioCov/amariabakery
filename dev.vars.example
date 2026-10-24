@@ -1,0 +1,2 @@
+ADMIN_PASSWORD=cambia-esta-clave-larga
+SESSION_SECRET=cambia-este-secreto-de-al-menos-32-caracteres

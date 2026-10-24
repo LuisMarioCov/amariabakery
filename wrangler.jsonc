@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "amaria",
+  "compatibility_date": "2026-10-23",
+  "main": "./src/server/index.ts",
+  "upload_source_maps": true,
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true
+    }
+  },
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    "WHATSAPP_E164": "5213123769977",
+    "INSTAGRAM_HANDLE": "amaria_bakery"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "amaria",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PHOTOS",
+      "bucket_name": "amaria-photos"
+    }
+  ]
+}
