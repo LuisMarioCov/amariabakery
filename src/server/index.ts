@@ -2,8 +2,11 @@ import { Hono } from "hono";
 import { assertSameOrigin, clearSessionCookie, isAdmin, login, requireAdmin, sessionCookie } from "./auth";
 import { HttpError, securityHeaders } from "./errors";
 import { getProduct, getProductByPhoto, listCategories, slugify } from "./menu";
-import { createOrder, listOrders, updateOrderStatus } from "./orders";
-import { assertLoginRate, assertOrderRate } from "./rate-limit";
+import { ticketLines, type Order } from "../shared/catalog";
+import { createOrder, findOrder, listOrders, updateOrderStatus } from "./orders";
+import { assertLoginRate, assertOrderRate, assertRateLimit, clientAddress } from "./rate-limit";
+import { buildTicketPdf } from "./ticket-pdf";
+import { issueTicketToken, readTicketOrderId } from "./ticket";
 import { categorySchema, loginSchema, productPatchSchema, productSchema, statusSchema } from "./schemas";
 
 export type Env = {
@@ -44,8 +47,22 @@ app.post("/api/orders", async (c) => {
   assertSameOrigin(c.req.raw);
   await assertOrderRate(c.env.DB, c.req.raw);
   const body: unknown = await c.req.json();
-  const order = await createOrder(c.env.DB, body, c.env.WHATSAPP_E164);
+  const order = await createOrder(c.env.DB, body, c.env.WHATSAPP_E164, {
+    secret: c.env.SESSION_SECRET,
+    origin: new URL(c.req.url).origin,
+  });
   return c.json(order, 201);
+});
+
+app.get("/api/tickets/:token/pdf", async (c) => {
+  const order = await loadPublicTicket(c.env.DB, c.env.SESSION_SECRET, c.req.raw, c.req.param("token"));
+  return ticketPdfResponse(order, c.req.query("descarga") === "1");
+});
+
+app.get("/api/tickets/:token", async (c) => {
+  const order = await loadPublicTicket(c.env.DB, c.env.SESSION_SECRET, c.req.raw, c.req.param("token"));
+  const { id: _id, ticketToken: _token, ...publicOrder } = order;
+  return c.json(publicOrder);
 });
 
 app.get("/api/media/:key", async (c) => {
@@ -94,7 +111,18 @@ app.get("/api/admin/catalog", async (c) => {
 
 app.get("/api/admin/orders", async (c) => {
   await requireAdmin(c.req.raw, c.env.SESSION_SECRET);
-  return c.json({ orders: await listOrders(c.env.DB) });
+  const orders = await listOrders(c.env.DB);
+  const withTickets = await Promise.all(
+    orders.map(async (order) => ({ ...order, ticketToken: await issueTicketToken(c.env.SESSION_SECRET, order.id) })),
+  );
+  return c.json({ orders: withTickets });
+});
+
+app.get("/api/admin/orders/:id/pdf", async (c) => {
+  await requireAdmin(c.req.raw, c.env.SESSION_SECRET);
+  const order = await findOrder(c.env.DB, c.req.param("id"));
+  if (!order) throw new HttpError(404, "No encontramos ese pedido");
+  return ticketPdfResponse(order, c.req.query("descarga") !== "0");
 });
 
 app.patch("/api/admin/orders/:id", async (c) => {
@@ -243,6 +271,26 @@ app.delete("/api/admin/products/:id/photo", async (c) => {
 });
 
 app.all("*", () => new Response(null, { status: 404 }));
+
+async function loadPublicTicket(db: D1Database, secret: string | undefined, request: Request, token: string): Promise<Order> {
+  await assertRateLimit(db, `ticket:${clientAddress(request)}`, 40, 15 * 60 * 1000);
+  const id = await readTicketOrderId(secret, token);
+  if (!id) throw new HttpError(404, "No encontramos ese ticket");
+  const order = await findOrder(db, id);
+  if (!order) throw new HttpError(404, "No encontramos ese ticket");
+  return order;
+}
+
+function ticketPdfResponse(order: Order, download: boolean): Response {
+  const pdf = buildTicketPdf(ticketLines(order));
+  const headers = new Headers({
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `${download ? "attachment" : "inline"}; filename="ticket-${order.publicCode}.pdf"`,
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "private, no-store",
+  });
+  return new Response(pdf, { headers });
+}
 
 function isUploadedFile(value: unknown): value is File {
   return typeof value === "object" && value !== null && "arrayBuffer" in value && "size" in value;

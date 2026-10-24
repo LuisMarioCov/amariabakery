@@ -29,7 +29,7 @@ export function getMenu() {
 }
 
 export function createOrder(body: unknown) {
-  return request<{ id: string; publicCode: string; totalCents: number; whatsappUrl: string }>("/api/orders", {
+  return request<{ id: string; publicCode: string; totalCents: number; ticketToken: string; whatsappUrl: string }>("/api/orders", {
     method: "POST",
     body: JSON.stringify(body),
   });

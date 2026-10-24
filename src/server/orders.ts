@@ -9,6 +9,7 @@ import {
 import { HttpError } from "./errors";
 import { getProduct } from "./menu";
 import { deliveryAddress, orderSchema } from "./schemas";
+import { issueTicketToken } from "./ticket";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -42,7 +43,12 @@ type ItemRow = {
   line_total_cents: number;
 };
 
-export async function createOrder(db: D1Database, body: unknown, whatsappPhone: string) {
+export async function createOrder(
+  db: D1Database,
+  body: unknown,
+  whatsappPhone: string,
+  ticket: { secret: string | undefined; origin: string },
+) {
   const parsed = orderSchema.safeParse(body);
   if (!parsed.success) {
     throw new HttpError(400, parsed.error.issues[0]?.message ?? "Revisa los datos del pedido");
@@ -113,6 +119,8 @@ export async function createOrder(db: D1Database, body: unknown, whatsappPhone: 
   ];
   await db.batch(statements);
 
+  const ticketToken = await issueTicketToken(ticket.secret, orderId);
+  const ticketUrl = `${ticket.origin}/pedido/${ticketToken}`;
   const message = buildWhatsappMessage({
     customerName: input.customerName,
     customerPhone: input.customerPhone.trim(),
@@ -122,14 +130,35 @@ export async function createOrder(db: D1Database, body: unknown, whatsappPhone: 
     publicCode: code,
     totalCents: total,
     items,
+    ticketUrl,
   });
 
   return {
     id: orderId,
     publicCode: code,
     totalCents: total,
+    ticketToken,
     whatsappUrl: whatsappUrl(whatsappPhone, message),
   };
+}
+
+export async function findOrder(db: D1Database, id: string): Promise<Order | null> {
+  const order = await db
+    .prepare(
+      `SELECT id, public_code, customer_name, customer_phone, fulfillment, address, note, status, total_cents, created_at
+       FROM orders WHERE id = ?`,
+    )
+    .bind(id)
+    .first<OrderRow>();
+  if (!order) return null;
+  const items = await db
+    .prepare(
+      `SELECT order_id, product_id, product_name, unit_price_cents, quantity, gift, flavors, line_total_cents
+       FROM order_items WHERE order_id = ?`,
+    )
+    .bind(id)
+    .all<ItemRow>();
+  return toOrder(order, items.results);
 }
 
 export async function listOrders(db: D1Database): Promise<Order[]> {
@@ -147,7 +176,11 @@ export async function listOrders(db: D1Database): Promise<Order[]> {
     )
     .bind(...orders.results.map((order) => order.id))
     .all<ItemRow>();
-  return orders.results.map((order) => ({
+  return orders.results.map((order) => toOrder(order, items.results.filter((item) => item.order_id === order.id)));
+}
+
+function toOrder(order: OrderRow, items: ItemRow[]): Order {
+  return {
     id: order.id,
     publicCode: order.public_code,
     customerName: order.customer_name,
@@ -158,18 +191,16 @@ export async function listOrders(db: D1Database): Promise<Order[]> {
     status: order.status,
     totalCents: order.total_cents,
     createdAt: order.created_at,
-    items: items.results
-      .filter((item) => item.order_id === order.id)
-      .map((item) => ({
-        productId: item.product_id,
-        productName: item.product_name,
-        unitPriceCents: item.unit_price_cents,
-        quantity: item.quantity,
-        gift: item.gift === null ? null : item.gift === 1,
-        flavors: item.flavors ? (JSON.parse(item.flavors) as string[]) : [],
-        lineTotalCents: item.line_total_cents,
-      })),
-  }));
+    items: items.map((item) => ({
+      productId: item.product_id,
+      productName: item.product_name,
+      unitPriceCents: item.unit_price_cents,
+      quantity: item.quantity,
+      gift: item.gift === null ? null : item.gift === 1,
+      flavors: item.flavors ? (JSON.parse(item.flavors) as string[]) : [],
+      lineTotalCents: item.line_total_cents,
+    })),
+  };
 }
 
 export async function updateOrderStatus(db: D1Database, id: string, status: OrderStatus): Promise<void> {

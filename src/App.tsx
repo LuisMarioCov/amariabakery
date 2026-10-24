@@ -6,6 +6,7 @@ import { SiteHeader } from "./components/SiteHeader";
 import { CartProvider } from "./lib/cart";
 import { MenuProvider, useMenu } from "./lib/menu";
 import { MenuPage } from "./pages/MenuPage";
+import { TicketPage } from "./pages/TicketPage";
 
 const AdminPage = lazy(() => import("./pages/AdminPage").then((module) => ({ default: module.AdminPage })));
 
@@ -32,6 +33,7 @@ function Shell() {
       {home && header ? createPortal(<SiteHeader instagram={menu.instagram} />, header) : null}
       <Routes>
         <Route path="/" element={<MenuPage />} />
+        <Route path="/pedido/:token" element={<TicketPage />} />
         <Route
           path="/admin"
           element={

@@ -299,6 +299,59 @@ describe("pantalla privada", () => {
     expect(list.orders.find((item) => item.id === order.id)?.status).toBe("en_preparacion");
   });
 
+  it("entrega el ticket al cliente y al admin", async () => {
+    const created = await request("/api/orders", {
+      method: "POST",
+      headers: { "CF-Connecting-IP": "203.0.113.80" },
+      body: JSON.stringify({
+        customerName: "Ana López",
+        customerPhone: "3121234567",
+        fulfillment: "pickup",
+        items: [{ productId: "pastel-zanahoria", quantity: 1 }],
+      }),
+    });
+    expect(created.status).toBe(201);
+    const body = await created.json<{ id: string; publicCode: string; ticketToken: string; whatsappUrl: string }>();
+    expect(body.ticketToken.startsWith(`${body.id}.`)).toBe(true);
+    expect(decodeURIComponent(body.whatsappUrl)).toContain(`https://amaria.test/pedido/${body.ticketToken}`);
+
+    const ticket = await request(`/api/tickets/${body.ticketToken}`, {
+      headers: { "CF-Connecting-IP": "203.0.113.81" },
+    });
+    expect(ticket.status).toBe(200);
+    const shown = await ticket.json<{ publicCode: string; id?: string }>();
+    expect(shown.publicCode).toBe(body.publicCode);
+    expect(shown.id).toBeUndefined();
+
+    const pdf = await request(`/api/tickets/${body.ticketToken}/pdf?descarga=1`, {
+      headers: { "CF-Connecting-IP": "203.0.113.82" },
+    });
+    expect(pdf.status).toBe(200);
+    expect(pdf.headers.get("content-type")).toContain("application/pdf");
+    expect(pdf.headers.get("content-disposition")).toContain("attachment");
+    const bytes = new TextDecoder().decode(await pdf.arrayBuffer());
+    expect(bytes.startsWith("%PDF-")).toBe(true);
+    expect(bytes).toContain(body.publicCode);
+
+    const missing = await request("/api/tickets/no-es-un-ticket", {
+      headers: { "CF-Connecting-IP": "203.0.113.83" },
+    });
+    expect(missing.status).toBe(404);
+
+    const locked = await request(`/api/admin/orders/${body.id}/pdf`);
+    expect(locked.status).toBe(401);
+
+    const cookie = await login("203.0.113.84");
+    const adminPdf = await request(`/api/admin/orders/${body.id}/pdf`, { headers: { cookie } });
+    expect(adminPdf.status).toBe(200);
+    const adminBytes = new TextDecoder().decode(await adminPdf.arrayBuffer());
+    expect(adminBytes.startsWith("%PDF-")).toBe(true);
+    expect(adminBytes).toContain(body.publicCode);
+
+    const unknown = await request(`/api/admin/orders/00000000-0000-4000-8000-000000000000/pdf`, { headers: { cookie } });
+    expect(unknown.status).toBe(404);
+  });
+
   it("rechaza otro origen", async () => {
     const response = await app.fetch(
       new Request("https://amaria.test/api/orders", {

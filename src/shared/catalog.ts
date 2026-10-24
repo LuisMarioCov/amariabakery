@@ -71,6 +71,7 @@ export type Order = {
   totalCents: number;
   createdAt: number;
   items: OrderItem[];
+  ticketToken?: string;
 };
 
 export function formatMoney(cents: number): string {
@@ -104,6 +105,7 @@ export function buildWhatsappMessage(input: {
   publicCode: string;
   totalCents: number;
   items: OrderItem[];
+  ticketUrl?: string;
 }): string {
   const lines = [
     `Hola, soy ${input.customerName}. Quiero hacer un pedido.`,
@@ -135,7 +137,62 @@ export function buildWhatsappMessage(input: {
       : "Pago en efectivo o transferencia al recoger.",
     `Folio: ${input.publicCode}`,
   );
+  if (input.ticketUrl) lines.push(`Ticket: ${input.ticketUrl}`);
   return lines.join("\n");
+}
+
+export function ticketLines(order: Order): string[] {
+  const when = new Intl.DateTimeFormat("es-MX", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/Mexico_City",
+  }).format(new Date(order.createdAt));
+  const lines = [
+    "Amaria Bakery",
+    "Ticket de pedido",
+    "",
+    `Folio: ${order.publicCode}`,
+    `Fecha: ${when}`,
+    `Estado: ${ticketStatus(order.status)}`,
+    "",
+    `Cliente: ${order.customerName}`,
+    `Telefono: ${order.customerPhone}`,
+    order.fulfillment === "delivery" && order.address ? `Envio a: ${order.address}` : "Entrega: recoger en el local",
+    "",
+  ];
+  for (const item of order.items) {
+    lines.push(`${item.quantity} x ${item.productName}  ${formatMoney(item.lineTotalCents)}`);
+    if (item.gift !== null) lines.push(`   Regalo: ${item.gift ? "si" : "no"}`);
+    if (item.flavors.length > 0) lines.push(`   ${formatFlavorCounts(item.flavors).replaceAll("×", "x")}`);
+  }
+  lines.push("", `Total: ${formatMoney(order.totalCents)}`);
+  lines.push(
+    order.fulfillment === "delivery"
+      ? "Pago por transferencia. Envia el comprobante por WhatsApp."
+      : "Pago en efectivo o transferencia al recoger.",
+  );
+  if (order.note) lines.push(`Nota: ${order.note}`);
+  return lines.flatMap((line) => wrapTicketLine(line, 72));
+}
+
+function ticketStatus(status: OrderStatus): string {
+  if (status === "nuevo") return "Nuevo";
+  if (status === "en_preparacion") return "En preparacion";
+  return "Listo";
+}
+
+function wrapTicketLine(line: string, width: number): string[] {
+  if (line.length <= width) return [line];
+  const parts: string[] = [];
+  let rest = line;
+  while (rest.length > width) {
+    const cut = rest.lastIndexOf(" ", width);
+    const at = cut > 0 ? cut : width;
+    parts.push(rest.slice(0, at));
+    rest = rest.slice(at).trimStart();
+  }
+  parts.push(rest);
+  return parts;
 }
 
 export function whatsappUrl(phoneE164: string, message: string): string {

@@ -16,7 +16,7 @@ export function CartDrawer() {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [done, setDone] = useState<{ publicCode: string; whatsappUrl: string; totalCents: number } | null>(null);
+  const [done, setDone] = useState<{ publicCode: string; whatsappUrl: string; totalCents: number; ticketToken: string } | null>(null);
 
   useEffect(() => {
     if (!open) setDone(null);
@@ -88,14 +88,16 @@ export function CartDrawer() {
               <p>
                 Pedido {done.publicCode} listo. Total <Price cents={done.totalCents} />.
               </p>
-              <p className="text-sm">Ábrelo en WhatsApp. Puedes cerrar esto y seguir viendo el menú.</p>
-              <a
-                className="inline-flex rounded-full bg-ink px-5 py-3 text-paper"
-                href={done.whatsappUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setOpen(false)}
-              >
+              <p className="text-sm">Puedes ver tu ticket, descargarlo y abrir WhatsApp. Después sigues en el menú.</p>
+              <div className="flex flex-wrap gap-3">
+                <a className="inline-flex rounded-full bg-ink px-5 py-3 text-paper" href={`/pedido/${done.ticketToken}`} onClick={() => setOpen(false)}>
+                  Ver ticket
+                </a>
+                <a className="inline-flex rounded-full border border-ink px-5 py-3 text-ink" href={`/api/tickets/${encodeURIComponent(done.ticketToken)}/pdf?descarga=1`}>
+                  Descargar PDF
+                </a>
+              </div>
+              <a className="inline-flex text-sm underline" href={done.whatsappUrl} target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
                 Abrir WhatsApp
               </a>
               <button type="button" className="block cursor-pointer text-sm underline" onClick={() => setOpen(false)}>

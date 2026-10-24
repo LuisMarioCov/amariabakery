@@ -5,7 +5,8 @@ test("el menú se puede pedir por WhatsApp", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Amaría Bakery" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Pastel de zanahoria" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Café" })).toHaveCount(0);
+  const cafeProducts = await page.getByRole("heading", { level: 3, name: /^Café/ }).count();
+  await expect(page.getByRole("heading", { level: 2, name: "Café", exact: true })).toHaveCount(cafeProducts > 0 ? 1 : 0);
 
   const violations = await new AxeBuilder({ page }).analyze();
   expect(violations.violations).toEqual([]);
@@ -28,6 +29,8 @@ test("el menú se puede pedir por WhatsApp", async ({ page }) => {
   await dialog.getByRole("button", { name: "Confirmar y abrir WhatsApp" }).click();
   await expect(dialog.getByRole("link", { name: "Abrir WhatsApp" })).toHaveAttribute("href", /wa\.me\/5213123769977/);
   await expect(dialog.getByRole("link", { name: "Abrir WhatsApp" })).toHaveAttribute("href", /Pastel%20de%20zanahoria|Pastel\+de\+zanahoria/);
+  await expect(dialog.getByRole("link", { name: "Ver ticket" })).toBeVisible();
+  await expect(dialog.getByRole("link", { name: "Descargar PDF" })).toBeVisible();
   await dialog.getByRole("button", { name: "Seguir en el menú" }).click();
   await expect(page.getByRole("dialog", { name: "Tu pedido" })).toHaveCount(0);
   await page.getByRole("heading", { level: 3, name: "Pastel de zanahoria" }).getByRole("button").click();
@@ -38,6 +41,7 @@ test("el admin entra y ve los productos", async ({ page }) => {
   await page.goto("/admin");
   await page.getByLabel("Contraseña").fill("amaria-local-admin");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Productos" })).toBeVisible();
-  await expect(page.getByRole("option", { name: /Pastel de zanahoria/ })).toBeAttached();
+  await expect(page.getByRole("tab", { name: "Pedidos" })).toBeVisible();
+  await page.getByRole("tab", { name: "Modificar menú" }).click();
+  await expect(page.getByRole("button", { name: "Pastel de zanahoria" })).toBeVisible();
 });

@@ -124,19 +124,18 @@ export function ProductCard({ product }: { product: Product }) {
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={titleId}
-                className="menu-card flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden bg-paper"
+                className="menu-card relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden bg-paper"
                 onClick={(event) => event.stopPropagation()}
               >
-                <ProductPhoto product={product} framed />
-                <div className="overflow-y-auto px-5 py-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <h2 id={titleId} className="font-display text-3xl tracking-wide text-ink">
-                      {product.name}
-                    </h2>
-                    <button ref={closeRef} type="button" className="price cursor-pointer text-2xl leading-none text-ink" aria-label="Cerrar" onClick={() => setOpen(false)}>
-                      ×
-                    </button>
-                  </div>
+                <button ref={closeRef} type="button" className="price absolute top-3 right-3 z-10 cursor-pointer bg-paper/90 px-2 text-2xl leading-none text-ink" aria-label="Cerrar" onClick={() => setOpen(false)}>
+                  ×
+                </button>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <ProductPhoto product={product} framed />
+                  <div className="px-5 py-5">
+                  <h2 id={titleId} className="font-display text-3xl tracking-wide text-ink">
+                    {product.name}
+                  </h2>
                   <p className="mt-3 text-ink-deep">{product.description}</p>
                   <p className="mt-4">
                     <Price cents={product.priceCents} className="text-2xl text-ink-deep" />
@@ -201,6 +200,7 @@ export function ProductCard({ product }: { product: Product }) {
                   <button type="button" className="mt-6 w-full cursor-pointer rounded-full bg-ink px-5 py-3 text-paper disabled:cursor-not-allowed disabled:opacity-40" disabled={!ready} onClick={addToCart}>
                     Agregar al carrito
                   </button>
+                  </div>
                 </div>
               </div>
             </div>,

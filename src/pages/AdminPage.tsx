@@ -14,9 +14,10 @@ import {
   updateProduct,
   uploadPhoto,
 } from "../lib/api";
-import { fileToWebp } from "../lib/image";
-import { statusLabel, type MenuCategory, type Order, type OrderStatus, type Product, type ProductKind } from "../shared/catalog";
+import { OrderBoard } from "../components/OrderBoard";
 import { Price } from "../components/Price";
+import { fileToWebp } from "../lib/image";
+import type { MenuCategory, Order, OrderStatus, Product, ProductKind } from "../shared/catalog";
 
 const emptyDraft = {
   categoryId: "postres",
@@ -35,10 +36,13 @@ export function AdminPage() {
   const [error, setError] = useState("");
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [selectedId, setSelectedId] = useState<string>("nuevo");
+  const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState(emptyDraft);
   const [notice, setNotice] = useState("");
   const [categoryName, setCategoryName] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(0);
+  const [section, setSection] = useState<"pedidos" | "menu">("pedidos");
 
   async function load() {
     const [catalog, orderList] = await Promise.all([adminCatalog(), adminOrders()]);
@@ -69,13 +73,19 @@ export function AdminPage() {
     }
   }
 
+  function startProduct(categoryId: string) {
+    setSelectedId("nuevo");
+    setNotice("");
+    setError("");
+    setConfirmDelete(0);
+    setAddingCategory(false);
+    setDraft({ ...emptyDraft, categoryId });
+  }
+
   function selectProduct(id: string) {
     setSelectedId(id);
     setNotice("");
-    if (id === "nuevo") {
-      setDraft(emptyDraft);
-      return;
-    }
+    setConfirmDelete(0);
     const product = categories.flatMap((category) => category.products).find((item) => item.id === id);
     if (!product) return;
     setDraft({
@@ -111,10 +121,10 @@ export function AdminPage() {
       if (selectedId === "nuevo") {
         const created = await createProduct(payload);
         setSelectedId(created.id);
-        setNotice("Producto creado");
+        setNotice("Listo");
       } else {
         await updateProduct(selectedId, payload);
-        setNotice("Producto actualizado");
+        setNotice("Listo");
       }
       await load();
     } catch (cause) {
@@ -128,7 +138,7 @@ export function AdminPage() {
     try {
       const photo = await fileToWebp(file);
       await uploadPhoto(selectedId, photo);
-      setNotice("Foto actualizada");
+      setNotice("Listo");
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo subir la foto");
@@ -140,9 +150,10 @@ export function AdminPage() {
     setError("");
     try {
       await deleteProduct(selectedId);
-      setSelectedId("nuevo");
+      setSelectedId("");
       setDraft(emptyDraft);
-      setNotice("Producto eliminado");
+      setConfirmDelete(0);
+      setNotice("");
       await load();
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "No se pudo eliminar");
@@ -190,144 +201,142 @@ export function AdminPage() {
         </form>
       ) : null}
       {authed ? (
-        <div className="mt-8 grid gap-10 lg:grid-cols-2">
-          <section aria-labelledby="productos-titulo">
-            <div className="flex items-center justify-between">
-              <h2 id="productos-titulo" className="font-display text-3xl text-ink">
-                Productos
-              </h2>
-              <button type="button" className="text-sm underline" onClick={() => void adminLogout().then(() => setAuthed(false))}>
-                Salir
+        <div className="mt-8">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex gap-2" role="tablist" aria-label="Secciones del panel">
+              <button type="button" role="tab" aria-selected={section === "pedidos"} className={`cursor-pointer rounded-full px-4 py-2 ${section === "pedidos" ? "bg-ink text-paper" : "border border-ink text-ink"}`} onClick={() => setSection("pedidos")}>
+                Pedidos
+              </button>
+              <button type="button" role="tab" aria-selected={section === "menu"} className={`cursor-pointer rounded-full px-4 py-2 ${section === "menu" ? "bg-ink text-paper" : "border border-ink text-ink"}`} onClick={() => setSection("menu")}>
+                Modificar menú
               </button>
             </div>
-            <form
-              className="mt-4 flex gap-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                setError("");
-                void createCategory(categoryName)
-                  .then(async (created) => {
-                    setCategoryName("");
-                    setDraft((current) => ({ ...current, categoryId: created.id }));
-                    setNotice("Categoría creada");
-                    await load();
-                  })
-                  .catch((cause: unknown) => setError(cause instanceof ApiError ? cause.message : "No se pudo crear la categoría"));
-              }}
-            >
-              <label className="flex-1">
-                Nueva categoría
-                <input value={categoryName} onChange={(event) => setCategoryName(event.target.value)} className="mt-1 w-full border border-sand bg-white px-3 py-2" />
-              </label>
-              <button type="submit" className="mt-7 rounded-full border border-ink px-4 py-2 text-ink">
-                Agregar
-              </button>
-            </form>
-            <label className="mt-4 block">
-              Elegir
-              <select className="mt-1 w-full border border-sand bg-white px-3 py-2" value={selectedId} onChange={(event) => selectProduct(event.target.value)}>
-                <option value="nuevo">Nuevo producto</option>
-                {categories.flatMap((category) =>
-                  category.products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.available ? "" : "Agotado · "}
-                      {category.name}: {product.name}
-                    </option>
-                  )),
-                )}
-              </select>
-            </label>
-            <form className="mt-4 space-y-3" onSubmit={saveProduct}>
-              <label className="block">
-                Categoría
-                <select className="mt-1 w-full border border-sand bg-white px-3 py-2" value={draft.categoryId} onChange={(event) => setDraft({ ...draft, categoryId: event.target.value })}>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                Nombre
-                <input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} className="mt-1 w-full border border-sand bg-white px-3 py-2" />
-              </label>
-              <label className="block">
-                Descripción
-                <textarea required value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} className="mt-1 w-full border border-sand bg-white px-3 py-2" rows={3} />
-              </label>
-              <label className="block">
-                Precio en pesos
-                <input required inputMode="decimal" value={draft.pricePesos} onChange={(event) => setDraft({ ...draft, pricePesos: event.target.value })} className="mt-1 w-full border border-sand bg-white px-3 py-2" />
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={draft.available} onChange={(event) => setDraft({ ...draft, available: event.target.checked })} />
-                Disponible
-              </label>
-              <label className="block">
-                Tipo
-                <select className="mt-1 w-full border border-sand bg-white px-3 py-2" value={draft.kind} onChange={(event) => setDraft({ ...draft, kind: event.target.value as ProductKind })}>
-                  <option value="simple">Producto</option>
-                  <option value="cookie_box">Caja de galletas</option>
-                </select>
-              </label>
-              {draft.kind === "cookie_box" ? (
-                <label className="block">
-                  Cantidad de galletas
-                  <input required value={draft.cookieCount} onChange={(event) => setDraft({ ...draft, cookieCount: event.target.value })} className="mt-1 w-full border border-sand bg-white px-3 py-2" inputMode="numeric" />
-                </label>
-              ) : null}
-              {selected ? <PhotoField product={selected} onPhoto={onPhoto} /> : null}
+            <button type="button" className="cursor-pointer text-sm underline" onClick={() => void adminLogout().then(() => setAuthed(false))}>
+              Salir
+            </button>
+          </div>
+          {section === "pedidos" ? (
+            <section className="mt-6" aria-labelledby="pedidos-titulo">
+              <h2 id="pedidos-titulo" className="sr-only">
+                Pedidos
+              </h2>
               {error ? <p role="alert">{error}</p> : null}
-              {notice ? <p>{notice}</p> : null}
-              <div className="flex flex-wrap gap-3">
-                <button type="submit" className="rounded-full bg-ink px-5 py-3 text-paper">
-                  Guardar
+              <OrderBoard orders={orders} onStatus={(id, status) => void changeStatus(id, status)} />
+            </section>
+          ) : (
+          <section className="mt-6" aria-labelledby="productos-titulo">
+            <h2 id="productos-titulo" className="sr-only">
+              Modificar menú
+            </h2>
+            {selectedId === "" ? (
+              <div>
+                {error ? <p role="alert">{error}</p> : null}
+                {categories.map((category) => (
+                  <div key={category.id} className="mt-6">
+                    <h3 className="font-display text-2xl text-ink">{category.name}</h3>
+                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {category.products.map((product) => (
+                        <button key={product.id} type="button" className="cursor-pointer bg-white p-4 text-left" onClick={() => selectProduct(product.id)}>
+                          <span className="block font-display text-xl text-ink">{product.name}</span>
+                          <span className="mt-2 flex items-center justify-between gap-2">
+                            <Price cents={product.priceCents} />
+                            {product.available ? null : <span className="text-xs">Agotado</span>}
+                          </span>
+                        </button>
+                      ))}
+                      <button type="button" className="grid h-full min-h-28 cursor-pointer place-items-center bg-white font-display text-4xl text-ink" aria-label={`Agregar en ${category.name}`} onClick={() => startProduct(category.id)}>
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {addingCategory ? (
+                  <form
+                    className="mt-8 flex max-w-md gap-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      setError("");
+                      void createCategory(categoryName)
+                        .then(async () => {
+                          setCategoryName("");
+                          setAddingCategory(false);
+                          await load();
+                        })
+                        .catch((cause: unknown) => setError(cause instanceof ApiError ? cause.message : "No se pudo crear la categoría"));
+                    }}
+                  >
+                    <input aria-label="Nombre de la categoría" placeholder="Nombre" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} className="w-full border border-sand bg-white px-3 py-3" />
+                    <button type="submit" className="cursor-pointer rounded-full bg-ink px-5 py-3 text-paper">
+                      Crear
+                    </button>
+                  </form>
+                ) : (
+                  <button type="button" className="mt-8 cursor-pointer text-sm text-ink underline" onClick={() => setAddingCategory(true)}>
+                    Agregar categoría
+                  </button>
+                )}
+              </div>
+            ) : (
+            <form className="mx-auto max-w-lg space-y-4 pb-28" onSubmit={saveProduct}>
+              <button type="button" className="cursor-pointer rounded-full border border-ink px-4 py-2 text-ink" onClick={() => { setSelectedId(""); setNotice(""); setError(""); setConfirmDelete(0); }}>
+                Volver
+              </button>
+              {selected ? <PhotoField product={selected} onPhoto={onPhoto} /> : null}
+              <input required aria-label="Nombre" placeholder="Nombre" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} className="w-full border border-sand bg-white px-3 py-3" />
+              <input required aria-label="Precio" placeholder="Precio" inputMode="decimal" value={draft.pricePesos} onChange={(event) => setDraft({ ...draft, pricePesos: event.target.value })} className="price w-full border border-sand bg-white px-3 py-3" />
+              <textarea required aria-label="Descripción" placeholder="Descripción" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} className="w-full border border-sand bg-white px-3 py-3" rows={2} />
+              <div role="group" aria-label="Categoría" className="flex flex-wrap gap-2">
+                {categories.map((category) => (
+                  <button key={category.id} type="button" className={`cursor-pointer rounded-full px-4 py-2 ${draft.categoryId === category.id ? "bg-ink text-paper" : "border border-sand bg-white text-ink"}`} onClick={() => setDraft({ ...draft, categoryId: category.id })}>
+                    {category.name}
+                  </button>
+                ))}
+              </div>
+              <div role="group" aria-label="Disponible" className="flex flex-wrap gap-2">
+                <button type="button" className={`cursor-pointer rounded-full px-4 py-2 ${draft.available ? "bg-ink text-paper" : "border border-sand bg-white text-ink"}`} onClick={() => setDraft({ ...draft, available: true })}>
+                  Disponible
                 </button>
-                {selectedId !== "nuevo" ? (
-                  <button type="button" className="rounded-full border border-ink px-5 py-3 text-ink" onClick={() => void removeProduct()}>
-                    Eliminar
+                <button type="button" className={`cursor-pointer rounded-full px-4 py-2 ${draft.available ? "border border-sand bg-white text-ink" : "bg-ink text-paper"}`} onClick={() => setDraft({ ...draft, available: false })}>
+                  Agotado
+                </button>
+              </div>
+              <div role="group" aria-label="Tipo" className="flex flex-wrap gap-2">
+                <button type="button" className={`cursor-pointer rounded-full px-4 py-2 ${draft.kind === "simple" ? "bg-ink text-paper" : "border border-sand bg-white text-ink"}`} onClick={() => setDraft({ ...draft, kind: "simple" })}>
+                  Producto
+                </button>
+                <button type="button" className={`cursor-pointer rounded-full px-4 py-2 ${draft.kind === "cookie_box" ? "bg-ink text-paper" : "border border-sand bg-white text-ink"}`} onClick={() => setDraft({ ...draft, kind: "cookie_box" })}>
+                  Caja de galletas
+                </button>
+              </div>
+              {draft.kind === "cookie_box" ? (
+                <input required aria-label="Galletas en la caja" placeholder="Galletas en la caja" value={draft.cookieCount} onChange={(event) => setDraft({ ...draft, cookieCount: event.target.value })} className="price w-full border border-sand bg-white px-3 py-3" inputMode="numeric" />
+              ) : null}
+              {selectedId !== "nuevo" ? (
+                  <button
+                    type="button"
+                    className="cursor-pointer rounded-full bg-[#f3c9c6] px-5 py-3 text-[#6b3330]"
+                    onClick={() => {
+                      if (confirmDelete < 2) {
+                        setConfirmDelete(confirmDelete + 1);
+                        return;
+                      }
+                      void removeProduct();
+                    }}
+                  >
+                    {confirmDelete === 0 ? "Borrar" : confirmDelete === 1 ? "Sí, borrar" : "¿Segura?"}
                   </button>
                 ) : null}
+              <div className="fixed inset-x-0 bottom-0 z-20 border-t border-sand bg-paper px-4 py-3">
+                {error ? <p className="mx-auto mb-2 max-w-lg" role="alert">{error}</p> : null}
+                {notice ? <p className="mx-auto mb-2 max-w-lg">{notice}</p> : null}
+                <button type="submit" className="mx-auto block w-full max-w-lg cursor-pointer bg-ink py-3 text-paper">
+                  Guardar
+                </button>
               </div>
             </form>
+            )}
           </section>
-          <section aria-labelledby="pedidos-titulo">
-            <h2 id="pedidos-titulo" className="font-display text-3xl text-ink">
-              Pedidos
-            </h2>
-            {orders.length === 0 ? <p className="mt-4">Todavía no hay pedidos.</p> : null}
-            <ul className="mt-4 space-y-4">
-              {orders.map((order) => (
-                <li key={order.id} className="border border-sand bg-white p-4">
-                  <p className="font-display text-2xl text-ink">Folio {order.publicCode}</p>
-                  <p>
-                    {order.customerName} · {order.customerPhone}
-                  </p>
-                  <p>{order.fulfillment === "delivery" ? `Envío a ${order.address}` : "Recoger en el local"}</p>
-                  {order.note ? <p>Nota: {order.note}</p> : null}
-                  <ul className="mt-2 list-disc pl-5">
-                    {order.items.map((item) => (
-                      <li key={`${order.id}-${item.productId}-${item.productName}`}>
-                        {item.quantity} × {item.productName} · <Price cents={item.lineTotalCents} />
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-2">
-                    <Price cents={order.totalCents} />
-                  </p>
-                  <label className="mt-2 block">
-                    Estatus
-                    <select className="mt-1 w-full border border-sand bg-white px-3 py-2" value={order.status} aria-label={`Estatus de ${order.publicCode}`} onChange={(event) => void changeStatus(order.id, event.target.value as OrderStatus)}>
-                      <option value="nuevo">{statusLabel("nuevo")}</option>
-                      <option value="en_preparacion">{statusLabel("en_preparacion")}</option>
-                      <option value="listo">{statusLabel("listo")}</option>
-                    </select>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </section>
+          )}
         </div>
       ) : null}
     </main>
@@ -336,17 +345,10 @@ export function AdminPage() {
 
 function PhotoField({ product, onPhoto }: { product: Product; onPhoto: (file: File | undefined) => Promise<void> }) {
   return (
-    <div>
-      {product.photoUrl ? <img src={product.photoUrl} alt="" className="mb-2 h-28 w-28 object-cover" /> : <p className="text-sm">Sin foto</p>}
-      <label className="block">
-        Foto
-        <input
-          type="file"
-          accept="image/*"
-          className="mt-1 block w-full"
-          onChange={(event) => void onPhoto(event.target.files?.[0])}
-        />
-      </label>
-    </div>
+    <label className="flex cursor-pointer items-center gap-3">
+      {product.photoUrl ? <img src={product.photoUrl} alt="" className="h-16 w-16 object-cover" /> : <span className="grid h-16 w-16 place-items-center bg-mist text-xs text-ink">Foto</span>}
+      <span className="rounded-full border border-ink px-4 py-2 text-ink">Cambiar foto</span>
+      <input type="file" accept="image/*" className="sr-only" onChange={(event) => void onPhoto(event.target.files?.[0])} />
+    </label>
   );
 }
