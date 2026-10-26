@@ -86,6 +86,11 @@ export function formatFlavorCounts(ids: string[]): string {
   return [...counts.entries()].map(([id, count]) => `${flavorName(id)} × ${count}`).join(", ");
 }
 
+export const STORE_ADDRESS =
+  "Plaza Orquídea II (2) entre Av. Ignacio Sandoval 1902 y Calle Pedro Calderón de la Barca";
+
+export const STORE_MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${STORE_ADDRESS}, Colima`)}`;
+
 export function fulfillmentLabel(fulfillment: Fulfillment): string {
   return fulfillment === "pickup" ? "Recoger en el local" : "Envío";
 }
@@ -126,7 +131,7 @@ export function buildWhatsappMessage(input: {
     `Total: ${formatMoney(input.totalCents)}`,
     input.fulfillment === "delivery" && input.address
       ? `Envío a: ${input.address}`
-      : "Entrega: recoger en el local",
+      : `Entrega: recoger en el local. ${STORE_ADDRESS} ${STORE_MAPS_URL}`,
     `Teléfono: ${input.customerPhone}`,
   ];
   if (input.note) lines.push(`Nota: ${input.note}`);
@@ -157,7 +162,9 @@ export function ticketLines(order: Order): string[] {
     "",
     `Cliente: ${order.customerName}`,
     `Telefono: ${order.customerPhone}`,
-    order.fulfillment === "delivery" && order.address ? `Envio a: ${order.address}` : "Entrega: recoger en el local",
+    order.fulfillment === "delivery" && order.address
+      ? `Envio a: ${order.address}`
+      : `Entrega: recoger en el local. ${ticketText(STORE_ADDRESS)} ${STORE_MAPS_URL}`,
     "",
   ];
   for (const item of order.items) {
@@ -173,6 +180,10 @@ export function ticketLines(order: Order): string[] {
   );
   if (order.note) lines.push(`Nota: ${order.note}`);
   return lines.flatMap((line) => wrapTicketLine(line, 72));
+}
+
+function ticketText(value: string): string {
+  return value.normalize("NFD").replace(/\p{M}/gu, "");
 }
 
 function ticketStatus(status: OrderStatus): string {

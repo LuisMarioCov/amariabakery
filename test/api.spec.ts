@@ -97,6 +97,8 @@ describe("pedidos", () => {
     expect(message).toContain("Pastel de zanahoria");
     expect(message).toContain("$480");
     expect(message).toContain("recoger en el local");
+    expect(message).toContain("Plaza Orquídea II (2)");
+    expect(message).toContain("https://www.google.com/maps/search/");
     expect(message).toContain(body.publicCode);
     expect(message).not.toContain("no debe guardarse");
   });

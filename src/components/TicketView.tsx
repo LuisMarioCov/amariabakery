@@ -1,5 +1,6 @@
 import { formatFlavorCounts, type Order } from "../shared/catalog";
 import { Price } from "./Price";
+import { StoreMapLink } from "./StoreMapLink";
 
 export function TicketView({ order }: { order: Order }) {
   const when = new Intl.DateTimeFormat("es-MX", {
@@ -7,7 +8,7 @@ export function TicketView({ order }: { order: Order }) {
     timeStyle: "short",
     timeZone: "America/Mexico_City",
   }).format(new Date(order.createdAt));
-  const where = order.fulfillment === "delivery" && order.address ? order.address : "Recoger en el local";
+  const deliveryAddress = order.fulfillment === "delivery" && order.address ? order.address : null;
   return (
     <article className="mx-auto max-w-sm bg-white px-6 py-7 text-sm text-ink-deep">
       <img src="/brand/logo-seal.webp" alt="" width="160" height="155" className="mx-auto h-16 w-auto" />
@@ -21,7 +22,13 @@ export function TicketView({ order }: { order: Order }) {
         {order.customerName}
         <span className="price"> · {order.customerPhone}</span>
         <br />
-        {where}
+        {deliveryAddress ?? (
+          <>
+            Recoger en el local
+            <br />
+            <StoreMapLink />
+          </>
+        )}
       </p>
       <ul className="mt-5 space-y-3 border-t border-sand pt-4">
         {order.items.map((item) => (

@@ -4,6 +4,7 @@ import { ApiError, createOrder } from "../lib/api";
 import { useCart } from "../lib/cart";
 import { lockPageScroll } from "../lib/scroll-lock";
 import { Price } from "./Price";
+import { StoreMapLink } from "./StoreMapLink";
 
 export function CartDrawer() {
   const { lines, open, setOpen, setQuantity, remove, clear, totalCents } = useCart();
@@ -179,7 +180,11 @@ export function CartDrawer() {
                   El envío se paga por transferencia. Al hacerla, envía el pedido por WhatsApp junto con el comprobante.
                 </p>
               ) : (
-                <p className="text-sm">El cobro es en efectivo o por transferencia al recoger.</p>
+                <p className="text-sm">
+                  El cobro es en efectivo o por transferencia al recoger.
+                  <br />
+                  <StoreMapLink />
+                </p>
               )}
               <button type="submit" disabled={pending} className="cursor-pointer rounded-full bg-ink px-5 py-3 text-paper disabled:cursor-not-allowed disabled:opacity-60">
                 {pending ? "Enviando…" : "Confirmar y abrir WhatsApp"}
