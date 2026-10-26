@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { STORE_HOURS, storeStatus } from "../shared/catalog";
 import { StoreMapLink } from "./StoreMapLink";
 
-export function StoreInfo() {
+export function StoreInfo({ lines = false }: { lines?: boolean }) {
   const [status, setStatus] = useState(() => storeStatus());
 
   useEffect(() => {
@@ -11,11 +11,18 @@ export function StoreInfo() {
   }, []);
 
   return (
-    <div className="space-y-1 text-sm">
+    <div className="space-y-1 text-sm leading-relaxed">
       <p>
-        <StoreMapLink />
+        <StoreMapLink split={lines} />
       </p>
-      <p>{STORE_HOURS}</p>
+      {lines ? (
+        <>
+          <p>Lunes a sábado: 8:00 a. m.–1:30 p. m.</p>
+          <p>4:30 p. m.–9:30 p. m. · Domingos: descanso.</p>
+        </>
+      ) : (
+        <p>{STORE_HOURS}</p>
+      )}
       <p>
         <span
           className={`inline-block rounded-full px-2 py-0.5 text-xs text-white ${status.open ? "bg-[#1b7f4a]" : "bg-[#b4332a]"}`}
