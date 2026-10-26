@@ -7,7 +7,7 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "npm run build && wrangler deploy --config dist/worker/wrangler.json",
     "test": "vitest run",
     "test:e2e": "wrangler d1 migrations apply amaria --local && playwright test",
     "typecheck": "tsc -b --pretty false",
