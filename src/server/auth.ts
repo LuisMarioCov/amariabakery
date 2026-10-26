@@ -3,7 +3,7 @@ import { HttpError } from "./errors";
 
 const COOKIE = "amaria_session";
 const SESSION_MS = 12 * 60 * 60 * 1000;
-const PASSWORD_ITERATIONS = 120_000;
+const PASSWORD_ITERATIONS = 100_000;
 
 type AdminRow = {
   id: string;
