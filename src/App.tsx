@@ -30,7 +30,7 @@ function Shell() {
 
   return (
     <>
-      {home && header ? createPortal(<SiteHeader instagram={menu.instagram} />, header) : null}
+      {home && header ? createPortal(<SiteHeader instagram={menu.instagram} whatsapp={menu.whatsapp} />, header) : null}
       <Routes>
         <Route path="/" element={<MenuPage />} />
         <Route path="/pedido/:token" element={<TicketPage />} />

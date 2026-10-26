@@ -1,9 +1,34 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCart } from "../lib/cart";
-import { CartIcon, InstagramIcon } from "./icons";
+import { CartIcon, InstagramIcon, WhatsAppIcon } from "./icons";
 
-export function SiteHeader({ instagram }: { instagram: string }) {
+function SocialLinks({ instagram, whatsapp }: { instagram: string; whatsapp: string }) {
+  return (
+    <>
+      <a
+        href={`https://wa.me/${whatsapp}`}
+        className="grid h-11 w-11 cursor-pointer place-items-center text-ink sm:h-14 sm:w-14"
+        rel="noreferrer"
+        target="_blank"
+        aria-label="WhatsApp"
+      >
+        <WhatsAppIcon />
+      </a>
+      <a
+        href={`https://instagram.com/${instagram}`}
+        className="grid h-11 w-11 cursor-pointer place-items-center text-ink sm:h-14 sm:w-14"
+        rel="noreferrer"
+        target="_blank"
+        aria-label="Instagram"
+      >
+        <InstagramIcon />
+      </a>
+    </>
+  );
+}
+
+export function SiteHeader({ instagram, whatsapp }: { instagram: string; whatsapp: string }) {
   const { count, setOpen, pulse } = useCart();
   const [added, setAdded] = useState(false);
 
@@ -16,22 +41,19 @@ export function SiteHeader({ instagram }: { instagram: string }) {
   return (
     <header className="sticky top-0 z-20 border-b border-sand bg-paper/95 backdrop-blur-sm">
       <div className="relative mx-auto flex h-20 max-w-6xl items-center justify-center px-4 sm:grid sm:h-auto sm:min-h-[6.25rem] sm:grid-cols-[1fr_auto_1fr] sm:px-6">
+        <div className="absolute left-2 flex items-center sm:hidden [&_svg]:h-[22px] [&_svg]:w-[22px]">
+          <SocialLinks instagram={instagram} whatsapp={whatsapp} />
+        </div>
         <div className="hidden sm:block" />
         <h1 className="justify-self-center">
           <a href="#inicio" className="inline-flex cursor-pointer">
-            <img src="/brand/logo-wordmark.webp" alt="Amaría Bakery" width="280" height="118" className="h-14 w-auto sm:h-20" />
+            <img src="/brand/logo-wordmark.webp" alt="Amaría Bakery" width="280" height="118" className="h-12 w-auto sm:h-20" />
           </a>
         </h1>
-        <div className="absolute right-3 flex items-center gap-1 sm:static sm:justify-self-end [&_svg]:h-6 [&_svg]:w-6 sm:[&_svg]:h-[30px] sm:[&_svg]:w-[30px]">
-          <a
-            href={`https://instagram.com/${instagram}`}
-            className="grid h-11 w-11 cursor-pointer place-items-center text-ink sm:h-14 sm:w-14"
-            rel="noreferrer"
-            target="_blank"
-            aria-label="Instagram"
-          >
-            <InstagramIcon />
-          </a>
+        <div className="absolute right-2 flex items-center sm:static sm:justify-self-end [&_svg]:h-[22px] [&_svg]:w-[22px] sm:[&_svg]:h-[30px] sm:[&_svg]:w-[30px]">
+          <div className="hidden sm:flex sm:items-center">
+            <SocialLinks instagram={instagram} whatsapp={whatsapp} />
+          </div>
           <button
             type="button"
             className="relative grid h-11 w-11 cursor-pointer place-items-center text-ink sm:h-14 sm:w-14"

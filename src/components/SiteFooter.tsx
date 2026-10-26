@@ -3,7 +3,7 @@ import { StoreInfo } from "./StoreInfo";
 export function SiteFooter({ instagram, whatsapp }: { instagram: string; whatsapp: string }) {
   return (
     <footer className="border-t border-sand">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-10 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 pt-10 pb-20 sm:flex-row sm:items-end sm:justify-between sm:px-6 sm:pr-24 sm:pb-10">
         <div>
           <img src="/brand/logo-seal.webp" alt="" width="160" height="155" className="mb-3 h-16 w-auto" />
           <p className="font-display text-2xl text-ink">Amaría Bakery</p>
