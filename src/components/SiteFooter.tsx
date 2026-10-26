@@ -1,4 +1,4 @@
-import { StoreMapLink } from "./StoreMapLink";
+import { StoreInfo } from "./StoreInfo";
 
 export function SiteFooter({ instagram, whatsapp }: { instagram: string; whatsapp: string }) {
   return (
@@ -8,9 +8,9 @@ export function SiteFooter({ instagram, whatsapp }: { instagram: string; whatsap
           <img src="/brand/logo-seal.webp" alt="" width="160" height="155" className="mb-3 h-16 w-auto" />
           <p className="font-display text-2xl text-ink">Amaría Bakery</p>
           <p className="font-script text-2xl text-ink">Colima</p>
-          <p className="mt-2 max-w-sm text-sm">
-            <StoreMapLink />
-          </p>
+          <div className="mt-2 max-w-sm">
+            <StoreInfo />
+          </div>
         </div>
         <div className="space-y-2">
           <p>Pago en efectivo o transferencia al recoger o al entregar.</p>

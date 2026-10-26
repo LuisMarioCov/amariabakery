@@ -1,6 +1,6 @@
 import { formatFlavorCounts, type Order } from "../shared/catalog";
 import { Price } from "./Price";
-import { StoreMapLink } from "./StoreMapLink";
+import { StoreInfo } from "./StoreInfo";
 
 export function TicketView({ order }: { order: Order }) {
   const when = new Intl.DateTimeFormat("es-MX", {
@@ -26,7 +26,7 @@ export function TicketView({ order }: { order: Order }) {
           <>
             Recoger en el local
             <br />
-            <StoreMapLink />
+            <StoreInfo />
           </>
         )}
       </p>
