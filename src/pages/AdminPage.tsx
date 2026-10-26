@@ -176,7 +176,7 @@ export function AdminPage() {
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <div className="flex items-center justify-between gap-4">
         <h1 className="font-display text-4xl text-ink">Panel de Amaría</h1>
-        <Link to="/" className="rounded-full border border-ink px-4 py-2 text-ink">
+        <Link to="/" className="shrink-0 self-center rounded-full border border-ink px-4 py-2 text-sm whitespace-nowrap text-ink">
           Ver menú
         </Link>
       </div>

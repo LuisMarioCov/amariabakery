@@ -9,7 +9,7 @@ export function MenuSection({ categories }: { categories: MenuCategory[] }) {
           <h2 id={`${category.slug}-titulo`} className="font-display text-4xl tracking-wide text-ink">
             {category.name}
           </h2>
-          <div className="mt-6 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-7 lg:grid-cols-3">
             {category.products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

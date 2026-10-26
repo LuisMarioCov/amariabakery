@@ -88,17 +88,17 @@ export function ProductCard({ product }: { product: Product }) {
   }
 
   return (
-    <article className="menu-tile">
+    <article className="menu-tile flex h-full flex-col">
       <button type="button" className="block w-full cursor-pointer" aria-label={product.name} onClick={() => setOpen(true)}>
         <ProductPhoto product={product} />
       </button>
-      <div className="px-4 pt-4 pb-4">
+      <div className="flex flex-1 flex-col px-2.5 pt-3 pb-3 sm:px-4 sm:pt-4 sm:pb-4">
         <h3>
-          <button type="button" className="w-full cursor-pointer text-left font-display text-2xl tracking-wide text-ink" onClick={() => setOpen(true)}>
+          <button type="button" className="w-full cursor-pointer text-left font-display text-lg leading-tight tracking-wide text-ink sm:text-2xl" onClick={() => setOpen(true)}>
             {product.name}
           </button>
         </h3>
-        <div className="mt-1 flex items-center justify-between gap-3">
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
           <Price cents={product.priceCents} className="text-base text-ink-deep" />
           <button
             type="button"
@@ -230,7 +230,7 @@ function ProductPhoto({ product, framed = false }: { product: Product; framed?: 
       {product.photoUrl ? (
         <img src={product.photoUrl} alt="" className="h-full w-full object-cover" />
       ) : (
-        <img src="/brand/logo-seal.webp" alt="" width="160" height="155" className="h-36 w-auto" />
+        <img src="/brand/logo-seal.webp" alt="" width="160" height="155" className="h-16 w-auto sm:h-36" />
       )}
     </span>
   );
