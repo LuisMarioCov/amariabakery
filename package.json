@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler deploy",
-    "postinstall": "vite build && node scripts/enable-provision.mjs",
+    "postinstall": "vite build",
     "test": "vitest run",
     "test:e2e": "wrangler d1 migrations apply amaria --local && playwright test",
     "typecheck": "tsc -b --pretty false",
