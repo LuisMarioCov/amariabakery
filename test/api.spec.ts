@@ -386,5 +386,7 @@ describe("pantalla privada", () => {
     const media = await request(body.photoUrl);
     expect(media.status).toBe(200);
     expect(media.headers.get("content-type")).toBe("image/webp");
+    const stored = new Uint8Array(await media.arrayBuffer());
+    expect(Array.from(stored)).toEqual(Array.from(bytes));
   });
 });

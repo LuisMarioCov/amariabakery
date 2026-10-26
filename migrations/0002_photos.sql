@@ -1,0 +1,4 @@
+CREATE TABLE photos (
+  id TEXT PRIMARY KEY,
+  bytes BLOB NOT NULL
+);

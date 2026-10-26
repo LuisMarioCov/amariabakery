@@ -7,11 +7,11 @@ import { createOrder, findOrder, listOrders, updateOrderStatus } from "./orders"
 import { assertLoginRate, assertOrderRate, assertRateLimit, clientAddress } from "./rate-limit";
 import { buildTicketPdf } from "./ticket-pdf";
 import { issueTicketToken, readTicketOrderId } from "./ticket";
+import { deletePhoto, readPhoto, savePhoto } from "./photos";
 import { categorySchema, loginSchema, productPatchSchema, productSchema, statusSchema } from "./schemas";
 
 export type Env = {
   DB: D1Database;
-  PHOTOS: R2Bucket;
   ADMIN_PASSWORD?: string;
   SESSION_SECRET?: string;
   WHATSAPP_E164: string;
@@ -73,14 +73,14 @@ app.get("/api/media/:key", async (c) => {
   if (product.available !== 1 && !(await isAdmin(c.req.raw, c.env.SESSION_SECRET))) {
     throw new HttpError(404, "No encontramos esa foto");
   }
-  const object = await c.env.PHOTOS.get(key);
-  if (!object) throw new HttpError(404, "No encontramos esa foto");
+  const bytes = await readPhoto(c.env.DB, key);
+  if (!bytes) throw new HttpError(404, "No encontramos esa foto");
   const headers = new Headers({
     "Content-Type": "image/webp",
     "X-Content-Type-Options": "nosniff",
     "Cache-Control": product.available === 1 ? "public, max-age=86400" : "private, no-store",
   });
-  return new Response(object.body, { headers });
+  return new Response(bytes, { headers });
 });
 
 app.post("/api/admin/login", async (c) => {
@@ -238,7 +238,7 @@ app.delete("/api/admin/products/:id", async (c) => {
   const current = await getProduct(c.env.DB, c.req.param("id"));
   if (!current) throw new HttpError(404, "No encontramos ese producto");
   await c.env.DB.prepare("DELETE FROM products WHERE id = ?").bind(current.id).run();
-  if (current.photo_key) await c.env.PHOTOS.delete(current.photo_key);
+  if (current.photo_key) await deletePhoto(c.env.DB, current.photo_key);
   return c.json({ ok: true });
 });
 
@@ -254,9 +254,9 @@ app.post("/api/admin/products/:id/photo", async (c) => {
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (!isWebp(bytes)) throw new HttpError(400, "La foto tiene que estar en WebP");
   const key = crypto.randomUUID();
-  await c.env.PHOTOS.put(key, bytes, { httpMetadata: { contentType: "image/webp" } });
+  await savePhoto(c.env.DB, key, bytes);
   await c.env.DB.prepare("UPDATE products SET photo_key = ?, updated_at = ? WHERE id = ?").bind(key, Date.now(), current.id).run();
-  if (current.photo_key) await c.env.PHOTOS.delete(current.photo_key);
+  if (current.photo_key) await deletePhoto(c.env.DB, current.photo_key);
   return c.json({ photoUrl: `/api/media/${key}` });
 });
 
@@ -266,7 +266,7 @@ app.delete("/api/admin/products/:id/photo", async (c) => {
   const current = await getProduct(c.env.DB, c.req.param("id"));
   if (!current) throw new HttpError(404, "No encontramos ese producto");
   await c.env.DB.prepare("UPDATE products SET photo_key = NULL, updated_at = ? WHERE id = ?").bind(Date.now(), current.id).run();
-  if (current.photo_key) await c.env.PHOTOS.delete(current.photo_key);
+  if (current.photo_key) await deletePhoto(c.env.DB, current.photo_key);
   return c.json({ ok: true });
 });
 

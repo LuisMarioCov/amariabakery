@@ -25,11 +25,5 @@
       "database_id": "3553731a-58d6-4354-8f65-2b7a52b93ea2",
       "migrations_dir": "migrations"
     }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "PHOTOS",
-      "bucket_name": "amaria-photos"
-    }
   ]
 }
