@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "amaria",
+  "name": "amariabakery",
   "compatibility_date": "2026-10-23",
   "main": "./src/server/index.ts",
   "upload_source_maps": true,
