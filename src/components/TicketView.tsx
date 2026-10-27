@@ -1,4 +1,4 @@
-import { formatFlavorCounts, formatSchedule, type Order } from "../shared/catalog";
+import { formatFlavorCounts, formatSchedule, paymentSentence, type Order } from "../shared/catalog";
 import { Price } from "./Price";
 import { StoreInfo } from "./StoreInfo";
 
@@ -61,7 +61,7 @@ export function TicketView({ order }: { order: Order }) {
       </p>
       {order.note ? <p className="mt-3 text-center text-xs text-slate">Nota: {order.note}</p> : null}
       <p className="mt-4 text-center text-xs text-slate">
-        {order.fulfillment === "delivery" ? "Transferencia. Envía el comprobante por WhatsApp." : "Efectivo o transferencia al recoger."}
+        {paymentSentence(order.paymentMethod, order.fulfillment)}
       </p>
     </article>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import type { PaymentMethod } from "../shared/catalog";
 import { formatFlavorCounts, formatScheduleTime, orderDates, orderTimes } from "../shared/catalog";
 import { ApiError, createOrder } from "../lib/api";
 import { useCart } from "../lib/cart";
@@ -7,6 +8,36 @@ import { Price } from "./Price";
 import { StoreInfo } from "./StoreInfo";
 
 const fieldClass = "mt-1.5 w-full border border-sand bg-white px-4 py-3.5 text-base text-ink-deep placeholder:text-slate";
+
+const TRANSFER_DETAILS = [
+  { label: "Banco", value: "BBVA" },
+  { label: "Titular", value: "Amaría Bakery" },
+  { label: "CLABE", value: "000000000000000000" },
+] as const;
+
+function CopyIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7">
+      <rect x="8" y="8" width="12" height="12" />
+      <path d="M4 16V4h12" />
+    </svg>
+  );
+}
+
+function CopyRow({ label, value, copied, onCopy }: { label: string; value: string; copied: string; onCopy: (label: string, value: string) => void }) {
+  return (
+    <div className="flex items-center gap-3 border border-sand bg-white px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-slate">{label}</p>
+        <p className="break-all text-ink-deep">{value}</p>
+      </div>
+      <button type="button" className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 border border-sand px-3 text-sm text-ink" aria-label={`Copiar ${label}`} onClick={() => onCopy(label, value)}>
+        <CopyIcon />
+        {copied === label ? "Copiado" : "Copiar"}
+      </button>
+    </div>
+  );
+}
 
 function FormBlock({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
   return (
@@ -69,11 +100,16 @@ export function CartDrawer() {
   const afternoon = times.filter((slot) => slot >= "16:30");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [done, setDone] = useState<{ publicCode: string; whatsappUrl: string; totalCents: number; ticketToken: string } | null>(null);
+  const [step, setStep] = useState<"details" | "pay" | "bank">("details");
+  const [payment, setPayment] = useState<PaymentMethod | "">("");
+  const [copied, setCopied] = useState("");
 
   useEffect(() => {
     if (!open) {
-      setDone(null);
+      setStep("details");
+      setPayment("");
+      setCopied("");
+      setError("");
       return;
     }
     const nextDates = orderDates();
@@ -101,10 +137,47 @@ export function CartDrawer() {
 
   if (!open) return null;
 
-  async function submit(event: FormEvent) {
+  function continueOrder(event: FormEvent) {
     event.preventDefault();
     setError("");
+    if (fulfillment === "delivery") {
+      setPayment("transferencia");
+      setStep("bank");
+      return;
+    }
+    setStep("pay");
+  }
+
+  async function copyDetail(label: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(label);
+      setError("");
+      return;
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = value;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.left = "-9999px";
+      document.body.appendChild(area);
+      area.select();
+      const copiedOk = document.execCommand("copy");
+      area.remove();
+      if (copiedOk) {
+        setCopied(label);
+        setError("");
+        return;
+      }
+      setCopied("");
+      setError("No se pudo copiar. Selecciona el dato y cópialo a mano.");
+    }
+  }
+
+  async function place(method: PaymentMethod) {
+    setError("");
     setPending(true);
+    const popup = window.open("", "_blank");
     try {
       const order = await createOrder({
         customerName: name,
@@ -114,16 +187,22 @@ export function CartDrawer() {
         note: note || undefined,
         scheduledDate: date,
         scheduledTime: time,
+        payment: method,
         items: lines.map((line) => ({
           productId: line.productId,
           quantity: line.quantity,
           ...(line.gift === null ? {} : { gift: line.gift, flavors: line.flavors }),
         })),
       });
-      setDone(order);
       clear();
       setNote("");
+      setStep("details");
+      setPayment("");
+      setOpen(false);
+      if (popup) popup.location.href = order.whatsappUrl;
+      else window.location.assign(order.whatsappUrl);
     } catch (cause) {
+      popup?.close();
       setError(cause instanceof ApiError ? cause.message : "No se pudo enviar el pedido");
     } finally {
       setPending(false);
@@ -148,31 +227,75 @@ export function CartDrawer() {
           </button>
         </div>
         <div className="flex min-h-0 flex-1 flex-col">
-          {done ? (
-            <div className="space-y-4 px-6 py-6">
-              <p>
-                Pedido {done.publicCode} listo. Total <Price cents={done.totalCents} />.
-              </p>
-              <p className="text-sm">Puedes ver tu ticket, descargarlo y abrir WhatsApp. Después sigues en el menú.</p>
-              <div className="flex flex-wrap gap-3">
-                <a className="inline-flex rounded-full bg-ink px-5 py-3 text-paper" href={`/pedido/${done.ticketToken}`} onClick={() => setOpen(false)}>
-                  Ver ticket
-                </a>
-                <a className="inline-flex rounded-full border border-ink px-5 py-3 text-ink" href={`/api/tickets/${encodeURIComponent(done.ticketToken)}/pdf?descarga=1`}>
-                  Descargar PDF
-                </a>
-              </div>
-              <a className="inline-flex text-sm underline" href={done.whatsappUrl} target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
-                Abrir WhatsApp
-              </a>
-              <button type="button" className="block cursor-pointer text-sm underline" onClick={() => setOpen(false)}>
-                Seguir en el menú
-              </button>
-            </div>
-          ) : lines.length === 0 ? (
+          {lines.length === 0 ? (
             <p className="px-6 py-6">El carrito está vacío.</p>
+          ) : step === "pay" ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+                <FormBlock title="¿Cómo quieres pagar?">
+                  <div className="grid gap-2">
+                    <label className={`relative flex cursor-pointer gap-3 border p-4 ${payment === "tienda" ? "border-ink bg-white" : "border-sand bg-paper"}`}>
+                      <input type="radio" name="payment" className="sr-only" checked={payment === "tienda"} onChange={() => setPayment("tienda")} />
+                      <span className={`mt-1 h-4 w-4 shrink-0 rounded-full border ${payment === "tienda" ? "border-ink bg-ink shadow-[inset_0_0_0_3px_#f1f1ef]" : "border-slate bg-white"}`} aria-hidden="true" />
+                      <span>
+                        <span className="block font-display text-xl leading-tight text-ink">Pagar en tienda</span>
+                        <span className="mt-1 block text-sm text-ink-deep">Pagas al recoger tu pedido.</span>
+                      </span>
+                    </label>
+                    <label className={`relative flex cursor-pointer gap-3 border p-4 ${payment === "transferencia" ? "border-ink bg-white" : "border-sand bg-paper"}`}>
+                      <input type="radio" name="payment" className="sr-only" checked={payment === "transferencia"} onChange={() => setPayment("transferencia")} />
+                      <span className={`mt-1 h-4 w-4 shrink-0 rounded-full border ${payment === "transferencia" ? "border-ink bg-ink shadow-[inset_0_0_0_3px_#f1f1ef]" : "border-slate bg-white"}`} aria-hidden="true" />
+                      <span>
+                        <span className="block font-display text-xl leading-tight text-ink">Transferencia</span>
+                        <span className="mt-1 block text-sm text-ink-deep">Te mostramos los datos para pagar.</span>
+                      </span>
+                    </label>
+                  </div>
+                </FormBlock>
+              </div>
+              <div className="border-t border-sand bg-paper px-5 py-4">
+                {error ? <p role="alert" className="mb-3 text-sm text-[#b4332a]">{error}</p> : null}
+                <button type="button" className="mb-3 cursor-pointer text-sm text-ink underline" onClick={() => setStep("details")}>
+                  Volver
+                </button>
+                <button
+                  type="button"
+                  disabled={pending || payment === ""}
+                  className="w-full cursor-pointer rounded-full bg-ink px-5 py-3 text-paper disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => {
+                    if (payment === "tienda") void place("tienda");
+                    if (payment === "transferencia") setStep("bank");
+                  }}
+                >
+                  {pending ? "Enviando…" : "Siguiente"}
+                </button>
+              </div>
+            </div>
+          ) : step === "bank" ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+                <FormBlock title="Datos para la transferencia" hint="Por ahora estos datos son de ejemplo.">
+                  <div className="space-y-2">
+                    {TRANSFER_DETAILS.map((detail) => (
+                      <CopyRow key={detail.label} label={detail.label} value={detail.value} copied={copied} onCopy={copyDetail} />
+                    ))}
+                    <CopyRow label="Concepto" value={name.trim()} copied={copied} onCopy={copyDetail} />
+                  </div>
+                  <p className="mt-3 text-sm text-ink-deep">Usa tu nombre como concepto. Al terminar te abrimos WhatsApp con el pedido escrito.</p>
+                </FormBlock>
+              </div>
+              <div className="border-t border-sand bg-paper px-5 py-4">
+                {error ? <p role="alert" className="mb-3 text-sm text-[#b4332a]">{error}</p> : null}
+                <button type="button" className="mb-3 cursor-pointer text-sm text-ink underline" onClick={() => setStep(fulfillment === "delivery" ? "details" : "pay")}>
+                  Volver
+                </button>
+                <button type="button" disabled={pending} className="w-full cursor-pointer rounded-full bg-ink px-5 py-3 text-paper disabled:cursor-not-allowed disabled:opacity-60" onClick={() => void place("transferencia")}>
+                  {pending ? "Enviando…" : "Listo"}
+                </button>
+              </div>
+            </div>
           ) : (
-            <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
+            <form className="flex min-h-0 flex-1 flex-col" onSubmit={continueOrder}>
               <div className="flex-1 space-y-7 overflow-y-auto px-5 py-5 [scrollbar-color:#cbc4b5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-sand [&::-webkit-scrollbar-track]:bg-transparent">
                 <ul className="space-y-3">
                   {lines.map((line) => (
@@ -263,7 +386,7 @@ export function CartDrawer() {
                       <span className={`mt-1 h-4 w-4 shrink-0 rounded-full border ${fulfillment === "pickup" ? "border-ink bg-ink shadow-[inset_0_0_0_3px_#f1f1ef]" : "border-slate bg-white"}`} aria-hidden="true" />
                       <span>
                         <span className="block font-display text-xl leading-tight text-ink">Recoger en el local</span>
-                        <span className="mt-1 block text-sm text-ink-deep">Pago en efectivo o transferencia al recoger.</span>
+                        <span className="mt-1 block text-sm text-ink-deep">Pagas en tienda o por transferencia.</span>
                       </span>
                     </label>
                     <label className={`relative flex cursor-pointer gap-3 border p-4 ${fulfillment === "delivery" ? "border-ink bg-white" : "border-sand bg-paper"}`}>
@@ -283,7 +406,7 @@ export function CartDrawer() {
                   </label>
                 ) : (
                   <div className="border border-sand bg-white p-4 text-sm">
-                    <p>El cobro es en efectivo o por transferencia al recoger.</p>
+                    <p>Si pagas en tienda, el cobro es al recoger.</p>
                     <div className="mt-3">
                       <StoreInfo />
                     </div>
@@ -302,7 +425,7 @@ export function CartDrawer() {
               <div className="border-t border-sand bg-paper px-5 py-4">
                 {error ? <p role="alert" className="mb-3 text-sm text-[#b4332a]">{error}</p> : null}
                 <button type="submit" disabled={pending || !date || !time} className="w-full cursor-pointer rounded-full bg-ink px-5 py-3 text-paper disabled:cursor-not-allowed disabled:opacity-60">
-                  {pending ? "Enviando…" : "Confirmar y abrir WhatsApp"}
+                  {pending ? "Enviando…" : "Siguiente"}
                 </button>
               </div>
             </form>

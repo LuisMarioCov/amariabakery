@@ -78,6 +78,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
+        payment: "tienda",
         address: "no debe guardarse",
         priceCents: 1,
         items: [{ productId: "pastel-zanahoria", quantity: 2 }],
@@ -95,6 +96,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "312 123 4567",
         fulfillment: "pickup",
+        payment: "tienda",
         items: [{ productId: "pastel-zanahoria", quantity: 1 }],
       }),
     });
@@ -103,14 +105,13 @@ describe("pedidos", () => {
     expect(body.totalCents).toBe(48000);
     expect(body.whatsappUrl).toContain("https://wa.me/5213123769977");
     const message = decodeURIComponent(body.whatsappUrl.split("text=")[1] ?? "");
+    expect(message).toContain("Quiero este pedido para el");
     expect(message).toContain("Pastel de zanahoria");
     expect(message).toContain("$480");
-    expect(message).toContain("recoger en el local");
-    expect(message).toContain("Calle Ignacio Sandoval 1902-Loc C");
-    expect(message).toContain("Domingos: descanso");
-    expect(message).toContain("Para:");
-    expect(message).toContain("https://www.google.com/maps/search/");
-    expect(message).toContain(body.publicCode);
+    expect(message).toContain("Lo recojo en el local. Pago en tienda.");
+    expect(message).toContain("Teléfono: 312 123 4567");
+    expect(message).toContain(`Folio: ${body.publicCode}`);
+    expect(message).not.toContain("https://www.google.com/maps/search/");
     expect(message).not.toContain("no debe guardarse");
   });
 
@@ -124,6 +125,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
+        payment: "tienda",
         items: [{ productId: "pastel-zanahoria", quantity: 1 }],
       }),
     });
@@ -139,6 +141,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
+        payment: "tienda",
         items: [{ productId: "pastel-zanahoria", quantity: 2 }],
       }),
     });
@@ -157,6 +160,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "delivery",
+        payment: "transferencia",
         items: [{ productId: "cheesecake-fresa", quantity: 1 }],
       }),
     });
@@ -170,6 +174,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "delivery",
+        payment: "transferencia",
         address: "Calle Reforma 12, Colima",
         items: [
           {
@@ -186,7 +191,22 @@ describe("pedidos", () => {
     expect(body.totalCents).toBe(21000);
     expect(decodeURIComponent(body.whatsappUrl)).toContain("Calle Reforma 12, Colima");
     expect(decodeURIComponent(body.whatsappUrl)).toContain("Regalo: sí");
-    expect(decodeURIComponent(body.whatsappUrl)).toContain("Pago por transferencia. Envío el comprobante junto con este pedido.");
+    expect(decodeURIComponent(body.whatsappUrl)).toContain("Pago por transferencia. Adjunto el comprobante.");
+
+    const inStore = await request("/api/orders", {
+      method: "POST",
+      headers: { "CF-Connecting-IP": "203.0.113.28" },
+      body: JSON.stringify({
+        ...schedule(),
+        customerName: "Ana López",
+        customerPhone: "3121234567",
+        fulfillment: "delivery",
+        payment: "tienda",
+        address: "Calle Reforma 12, Colima",
+        items: [{ productId: "cheesecake-fresa", quantity: 1 }],
+      }),
+    });
+    expect(inStore.status).toBe(400);
   });
 
   it("pide una galleta por cada lugar de cada caja", async () => {
@@ -198,6 +218,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
+        payment: "tienda",
         items: [{ productId: "caja-3-galletas", quantity: 2, gift: false, flavors: ["chispas", "lotus", "manzana"] }],
       }),
     });
@@ -211,6 +232,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
+        payment: "tienda",
         items: [
           {
             productId: "caja-3-galletas",
@@ -235,6 +257,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
+        payment: "tienda",
         items: [{ productId: "caja-6-galletas", quantity: 1, gift: false, flavors: ["chispas"] }],
       }),
     });
@@ -260,6 +283,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
+        payment: "tienda",
         items: [{ productId: "bruce-cake", quantity: 1 }],
       }),
     });
@@ -314,6 +338,7 @@ describe("pantalla privada", () => {
         customerName: "Luis Pérez",
         customerPhone: "3120001122",
         fulfillment: "pickup",
+        payment: "tienda",
         items: [{ productId: "tarta-tiramisu", quantity: 1 }],
       }),
     });
@@ -345,13 +370,15 @@ describe("pantalla privada", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
+        payment: "tienda",
         items: [{ productId: "pastel-zanahoria", quantity: 1 }],
       }),
     });
     expect(created.status).toBe(201);
     const body = await created.json<{ id: string; publicCode: string; ticketToken: string; whatsappUrl: string }>();
     expect(body.ticketToken.startsWith(`${body.id}.`)).toBe(true);
-    expect(decodeURIComponent(body.whatsappUrl)).toContain(`https://amaria.test/pedido/${body.ticketToken}`);
+    expect(decodeURIComponent(body.whatsappUrl)).toContain("Quiero este pedido para el");
+    expect(decodeURIComponent(body.whatsappUrl)).not.toContain(`/pedido/${body.ticketToken}`);
 
     const ticket = await request(`/api/tickets/${body.ticketToken}`, {
       headers: { "CF-Connecting-IP": "203.0.113.81" },

@@ -12,6 +12,7 @@ export const orderSchema = z
     note: z.string().trim().max(400).optional(),
     scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     scheduledTime: z.string().regex(/^\d{2}:\d{2}$/),
+    payment: z.enum(["tienda", "transferencia"]),
     items: z
       .array(
         z.strictObject({
@@ -31,6 +32,9 @@ export const orderSchema = z
     }
     if (value.fulfillment === "delivery" && (value.address ?? "").trim().length < 8) {
       ctx.addIssue({ code: "custom", path: ["address"], message: "Escribe la dirección de envío" });
+    }
+    if (value.fulfillment === "delivery" && value.payment !== "transferencia") {
+      ctx.addIssue({ code: "custom", path: ["payment"], message: "El envío se paga por transferencia" });
     }
     if (!isOrderSlot(value.scheduledDate, value.scheduledTime)) {
       ctx.addIssue({ code: "custom", path: ["scheduledTime"], message: "Elige una hora dentro del horario del local" });

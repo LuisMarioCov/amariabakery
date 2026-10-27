@@ -56,7 +56,10 @@ export function OrderBoard({
                         <span className="mt-1 block text-sm text-ink-deep">{formatSchedule(order.scheduledDate, order.scheduledTime)}</span>
                       ) : null}
                       <span className="mt-1 flex items-center justify-between gap-2 text-sm">
-                        <span>{order.fulfillment === "delivery" ? "Envío" : "Recoger"}</span>
+                        <span>
+                          {order.fulfillment === "delivery" ? "Envío" : "Recoger"}
+                          {order.paymentMethod === "transferencia" ? " · Transferencia" : order.paymentMethod === "tienda" ? " · En tienda" : ""}
+                        </span>
                         <Price cents={order.totalCents} />
                       </span>
                     </button>

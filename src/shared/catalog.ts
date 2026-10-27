@@ -21,6 +21,7 @@ export function flavorName(id: string): string {
 
 export type ProductKind = "simple" | "cookie_box";
 export type Fulfillment = "pickup" | "delivery";
+export type PaymentMethod = "tienda" | "transferencia";
 export type OrderStatus = "nuevo" | "en_preparacion" | "listo";
 
 export type Product = {
@@ -69,6 +70,7 @@ export type Order = {
   note: string | null;
   scheduledDate: string | null;
   scheduledTime: string | null;
+  paymentMethod: PaymentMethod | null;
   status: OrderStatus;
   totalCents: number;
   createdAt: number;
@@ -231,6 +233,14 @@ export function statusLabel(status: OrderStatus): string {
   return "Listo";
 }
 
+export function paymentSentence(payment: PaymentMethod | null, fulfillment: Fulfillment): string {
+  if (payment === "tienda") return "Pago en tienda.";
+  if (payment === "transferencia") return "Pago por transferencia. Adjunto el comprobante.";
+  return fulfillment === "delivery"
+    ? "Pago por transferencia. Adjunto el comprobante."
+    : "Pago en efectivo o transferencia al recoger.";
+}
+
 export function buildWhatsappMessage(input: {
   customerName: string;
   customerPhone: string;
@@ -239,44 +249,30 @@ export function buildWhatsappMessage(input: {
   note: string | null;
   scheduledDate: string;
   scheduledTime: string;
+  payment: PaymentMethod;
   publicCode: string;
   totalCents: number;
   items: OrderItem[];
-  ticketUrl?: string;
 }): string {
+  const when = formatSchedule(input.scheduledDate, input.scheduledTime).replace(/^\p{L}/u, (letter) => letter.toUpperCase());
   const lines = [
-    `Hola, soy ${input.customerName}. Quiero hacer un pedido.`,
+    `Hola, soy ${input.customerName}. Quiero este pedido para el ${when}.`,
     "",
     ...input.items.flatMap((item) => {
-      const row = [
-        `- ${item.quantity} × ${item.productName} — ${formatMoney(item.lineTotalCents)}`,
-      ];
-      if (item.gift !== null) {
-        row.push(`  Regalo: ${item.gift ? "sí" : "no"}`);
-      }
-      if (item.flavors.length > 0) {
-        row.push(`  Sabores: ${formatFlavorCounts(item.flavors)}`);
-      }
+      const row = [`${item.quantity} × ${item.productName} — ${formatMoney(item.lineTotalCents)}`];
+      if (item.gift !== null) row.push(`Regalo: ${item.gift ? "sí" : "no"}`);
+      if (item.flavors.length > 0) row.push(`Sabores: ${formatFlavorCounts(item.flavors)}`);
       return row;
     }),
     "",
     `Total: ${formatMoney(input.totalCents)}`,
+    "",
     input.fulfillment === "delivery" && input.address
-      ? `Envío a: ${input.address}`
-      : `Entrega: recoger en el local. ${STORE_ADDRESS} ${STORE_MAPS_URL}`,
-    ...(input.fulfillment === "pickup" ? [`Horario: ${STORE_HOURS}`] : []),
-    `Teléfono: ${input.customerPhone}`,
-    `Para: ${formatSchedule(input.scheduledDate, input.scheduledTime)}`,
+      ? `Envío a: ${input.address}. ${paymentSentence(input.payment, input.fulfillment)}`
+      : `Lo recojo en el local. ${paymentSentence(input.payment, input.fulfillment)}`,
   ];
   if (input.note) lines.push(`Nota: ${input.note}`);
-  lines.push(
-    "",
-    input.fulfillment === "delivery"
-      ? "Pago por transferencia. Envío el comprobante junto con este pedido."
-      : "Pago en efectivo o transferencia al recoger.",
-    `Folio: ${input.publicCode}`,
-  );
-  if (input.ticketUrl) lines.push(`Ticket: ${input.ticketUrl}`);
+  lines.push(`Teléfono: ${input.customerPhone}`, `Folio: ${input.publicCode}`);
   return lines.join("\n");
 }
 
@@ -309,11 +305,7 @@ export function ticketLines(order: Order): string[] {
     if (item.flavors.length > 0) lines.push(`   ${formatFlavorCounts(item.flavors).replaceAll("×", "x")}`);
   }
   lines.push("", `Total: ${formatMoney(order.totalCents)}`);
-  lines.push(
-    order.fulfillment === "delivery"
-      ? "Pago por transferencia. Envia el comprobante por WhatsApp."
-      : "Pago en efectivo o transferencia al recoger.",
-  );
+  lines.push(ticketText(paymentSentence(order.paymentMethod, order.fulfillment)));
   if (order.note) lines.push(`Nota: ${order.note}`);
   return lines.flatMap((line) => wrapTicketLine(line, 72));
 }

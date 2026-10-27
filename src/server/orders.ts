@@ -5,6 +5,7 @@ import {
   type Order,
   type OrderItem,
   type OrderStatus,
+  type PaymentMethod,
 } from "../shared/catalog";
 import { HttpError } from "./errors";
 import { getProduct } from "./menu";
@@ -29,6 +30,7 @@ type OrderRow = {
   note: string | null;
   scheduled_date: string | null;
   scheduled_time: string | null;
+  payment_method: string | null;
   status: OrderStatus;
   total_cents: number;
   created_at: number;
@@ -96,8 +98,8 @@ export async function createOrder(
       .prepare(
         `INSERT INTO orders (
           id, public_code, customer_name, customer_phone, fulfillment, address, note, status, total_cents, created_at,
-          scheduled_date, scheduled_time
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'nuevo', ?, ?, ?, ?)`,
+          scheduled_date, scheduled_time, payment_method
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'nuevo', ?, ?, ?, ?, ?)`,
       )
       .bind(
         orderId,
@@ -111,6 +113,7 @@ export async function createOrder(
         createdAt,
         input.scheduledDate,
         input.scheduledTime,
+        input.payment,
       ),
     ...items.map((item) =>
       db
@@ -135,7 +138,6 @@ export async function createOrder(
   await db.batch(statements);
 
   const ticketToken = await issueTicketToken(ticket.secret, orderId);
-  const ticketUrl = `${ticket.origin}/pedido/${ticketToken}`;
   const message = buildWhatsappMessage({
     customerName: input.customerName,
     customerPhone: input.customerPhone.trim(),
@@ -144,10 +146,10 @@ export async function createOrder(
     note,
     scheduledDate: input.scheduledDate,
     scheduledTime: input.scheduledTime,
+    payment: input.payment,
     publicCode: code,
     totalCents: total,
     items,
-    ticketUrl,
   });
 
   return {
@@ -163,7 +165,7 @@ export async function findOrder(db: D1Database, id: string): Promise<Order | nul
   const order = await db
     .prepare(
       `SELECT id, public_code, customer_name, customer_phone, fulfillment, address, note, status, total_cents, created_at,
-              scheduled_date, scheduled_time
+              scheduled_date, scheduled_time, payment_method
        FROM orders WHERE id = ?`,
     )
     .bind(id)
@@ -183,7 +185,7 @@ export async function listOrders(db: D1Database): Promise<Order[]> {
   const orders = await db
     .prepare(
       `SELECT id, public_code, customer_name, customer_phone, fulfillment, address, note, status, total_cents, created_at,
-              scheduled_date, scheduled_time
+              scheduled_date, scheduled_time, payment_method
        FROM orders ORDER BY created_at DESC LIMIT 100`,
     )
     .all<OrderRow>();
@@ -198,6 +200,11 @@ export async function listOrders(db: D1Database): Promise<Order[]> {
   return orders.results.map((order) => toOrder(order, items.results.filter((item) => item.order_id === order.id)));
 }
 
+function storedPayment(value: string | null): PaymentMethod | null {
+  if (value === "tienda" || value === "transferencia") return value;
+  return null;
+}
+
 function toOrder(order: OrderRow, items: ItemRow[]): Order {
   return {
     id: order.id,
@@ -209,6 +216,7 @@ function toOrder(order: OrderRow, items: ItemRow[]): Order {
     note: order.note,
     scheduledDate: order.scheduled_date,
     scheduledTime: order.scheduled_time,
+    paymentMethod: storedPayment(order.payment_method),
     status: order.status,
     totalCents: order.total_cents,
     createdAt: order.created_at,
