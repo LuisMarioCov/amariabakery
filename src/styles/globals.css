@@ -64,6 +64,19 @@
   }
 }
 
+/* Las fotos laterales se salen de su caja en pantallas angostas. El menú baja esa misma medida para no taparlas. */
+@media (max-width: 639px) {
+  #menu {
+    margin-top: max(0px, calc((100vw - 0.375rem) / 2 * 1199 / 900 - 13rem));
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  #menu {
+    margin-top: max(0px, calc((100vw - 0.375rem) / 2 * 1199 / 900 - 16rem));
+  }
+}
+
 .skip-link {
   position: absolute;
   left: 1rem;

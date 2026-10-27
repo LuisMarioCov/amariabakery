@@ -94,7 +94,7 @@ describe("pedidos", () => {
       body: JSON.stringify({
         ...schedule(),
         customerName: "Ana López",
-        customerPhone: "312 123 4567",
+        customerPhone: "3121234567",
         fulfillment: "pickup",
         payment: "tienda",
         items: [{ productId: "pastel-zanahoria", quantity: 1 }],
@@ -109,10 +109,30 @@ describe("pedidos", () => {
     expect(message).toContain("Pastel de zanahoria");
     expect(message).toContain("$480");
     expect(message).toContain("Lo recojo en el local. Pago en tienda.");
-    expect(message).toContain("Teléfono: 312 123 4567");
+    expect(message).toContain("Teléfono: 3121234567");
     expect(message).toContain(`Folio: ${body.publicCode}`);
     expect(message).not.toContain("https://www.google.com/maps/search/");
     expect(message).not.toContain("no debe guardarse");
+  });
+
+  it("rechaza un teléfono que no tiene 10 dígitos", async () => {
+    for (const customerPhone of ["312123456", "31212345678", "312 123 4567"]) {
+      const response = await request("/api/orders", {
+        method: "POST",
+        headers: { "CF-Connecting-IP": "203.0.113.70" },
+        body: JSON.stringify({
+          ...schedule(),
+          customerName: "Ana López",
+          customerPhone,
+          fulfillment: "pickup",
+          payment: "tienda",
+          items: [{ productId: "pastel-zanahoria", quantity: 1 }],
+        }),
+      });
+      expect(response.status).toBe(400);
+      const body = await response.json<{ error: string }>();
+      expect(body.error).toBe("Escribe un teléfono de 10 dígitos");
+    }
   });
 
   it("rechaza una hora fuera del horario", async () => {

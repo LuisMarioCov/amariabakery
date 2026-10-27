@@ -341,7 +341,7 @@ export function CartDrawer() {
                     </label>
                     <label className="block text-sm text-ink">
                       Teléfono
-                      <input required inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} className={fieldClass} placeholder="10 dígitos" />
+                      <input required inputMode="numeric" autoComplete="tel" minLength={10} maxLength={10} pattern="[0-9]{10}" title="Escribe 10 dígitos" value={phone} onChange={(event) => setPhone(event.target.value.replace(/\D/g, "").slice(0, 10))} className={fieldClass} placeholder="10 dígitos" />
                     </label>
                   </div>
                 </FormBlock>

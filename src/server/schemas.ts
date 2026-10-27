@@ -6,7 +6,7 @@ const money = z.number().int().min(0).max(10_000_000);
 export const orderSchema = z
   .strictObject({
     customerName: z.string().trim().min(2).max(80),
-    customerPhone: z.string().trim().min(8).max(20),
+    customerPhone: z.string().trim().regex(/^\d{10}$/, "Escribe un teléfono de 10 dígitos"),
     fulfillment: z.enum(["pickup", "delivery"]),
     address: z.string().trim().max(300).optional(),
     note: z.string().trim().max(400).optional(),
@@ -26,10 +26,6 @@ export const orderSchema = z
       .max(30),
   })
   .superRefine((value, ctx) => {
-    const digits = value.customerPhone.replace(/\D/g, "");
-    if (digits.length < 10 || digits.length > 15) {
-      ctx.addIssue({ code: "custom", path: ["customerPhone"], message: "Escribe un teléfono válido" });
-    }
     if (value.fulfillment === "delivery" && (value.address ?? "").trim().length < 8) {
       ctx.addIssue({ code: "custom", path: ["address"], message: "Escribe la dirección de envío" });
     }
