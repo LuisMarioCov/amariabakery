@@ -27,6 +27,8 @@ type OrderRow = {
   fulfillment: "pickup" | "delivery";
   address: string | null;
   note: string | null;
+  scheduled_date: string | null;
+  scheduled_time: string | null;
   status: OrderStatus;
   total_cents: number;
   created_at: number;
@@ -93,10 +95,23 @@ export async function createOrder(
     db
       .prepare(
         `INSERT INTO orders (
-          id, public_code, customer_name, customer_phone, fulfillment, address, note, status, total_cents, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'nuevo', ?, ?)`,
+          id, public_code, customer_name, customer_phone, fulfillment, address, note, status, total_cents, created_at,
+          scheduled_date, scheduled_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'nuevo', ?, ?, ?, ?)`,
       )
-      .bind(orderId, code, input.customerName, input.customerPhone.trim(), input.fulfillment, address, note, total, createdAt),
+      .bind(
+        orderId,
+        code,
+        input.customerName,
+        input.customerPhone.trim(),
+        input.fulfillment,
+        address,
+        note,
+        total,
+        createdAt,
+        input.scheduledDate,
+        input.scheduledTime,
+      ),
     ...items.map((item) =>
       db
         .prepare(
@@ -127,6 +142,8 @@ export async function createOrder(
     fulfillment: input.fulfillment,
     address,
     note,
+    scheduledDate: input.scheduledDate,
+    scheduledTime: input.scheduledTime,
     publicCode: code,
     totalCents: total,
     items,
@@ -145,7 +162,8 @@ export async function createOrder(
 export async function findOrder(db: D1Database, id: string): Promise<Order | null> {
   const order = await db
     .prepare(
-      `SELECT id, public_code, customer_name, customer_phone, fulfillment, address, note, status, total_cents, created_at
+      `SELECT id, public_code, customer_name, customer_phone, fulfillment, address, note, status, total_cents, created_at,
+              scheduled_date, scheduled_time
        FROM orders WHERE id = ?`,
     )
     .bind(id)
@@ -164,7 +182,8 @@ export async function findOrder(db: D1Database, id: string): Promise<Order | nul
 export async function listOrders(db: D1Database): Promise<Order[]> {
   const orders = await db
     .prepare(
-      `SELECT id, public_code, customer_name, customer_phone, fulfillment, address, note, status, total_cents, created_at
+      `SELECT id, public_code, customer_name, customer_phone, fulfillment, address, note, status, total_cents, created_at,
+              scheduled_date, scheduled_time
        FROM orders ORDER BY created_at DESC LIMIT 100`,
     )
     .all<OrderRow>();
@@ -188,6 +207,8 @@ function toOrder(order: OrderRow, items: ItemRow[]): Order {
     fulfillment: order.fulfillment,
     address: order.address,
     note: order.note,
+    scheduledDate: order.scheduled_date,
+    scheduledTime: order.scheduled_time,
     status: order.status,
     totalCents: order.total_cents,
     createdAt: order.created_at,

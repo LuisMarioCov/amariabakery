@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import { TicketView } from "./TicketView";
 import { lockPageScroll } from "../lib/scroll-lock";
-import { statusLabel, type Order, type OrderStatus } from "../shared/catalog";
+import { formatSchedule, statusLabel, type Order, type OrderStatus } from "../shared/catalog";
 import { Price } from "./Price";
 
 const columns: { status: OrderStatus; title: string; tone: string }[] = [
@@ -52,6 +52,9 @@ export function OrderBoard({
                     <button type="button" className="w-full cursor-pointer bg-white p-3 text-left" onClick={() => setSelectedId(order.id)}>
                       <span className="price text-sm text-ink-deep">{order.publicCode}</span>
                       <span className="mt-1 block font-display text-xl text-ink">{order.customerName}</span>
+                      {order.scheduledDate && order.scheduledTime ? (
+                        <span className="mt-1 block text-sm text-ink-deep">{formatSchedule(order.scheduledDate, order.scheduledTime)}</span>
+                      ) : null}
                       <span className="mt-1 flex items-center justify-between gap-2 text-sm">
                         <span>{order.fulfillment === "delivery" ? "Envío" : "Recoger"}</span>
                         <Price cents={order.totalCents} />

@@ -67,6 +67,8 @@ export type Order = {
   fulfillment: Fulfillment;
   address: string | null;
   note: string | null;
+  scheduledDate: string | null;
+  scheduledTime: string | null;
   status: OrderStatus;
   totalCents: number;
   createdAt: number;
@@ -113,6 +115,112 @@ export function storeStatus(now = new Date()): { open: boolean; label: "Abierto"
   return open ? { open: true, label: "Abierto" } : { open: false, label: "Cerrado" };
 }
 
+const ORDER_WINDOWS: [number, number][] = [
+  [8 * 60, 13 * 60 + 30],
+  [16 * 60 + 30, 21 * 60 + 30],
+];
+const ORDER_HORIZON_DAYS = 14;
+
+function cityClock(now: Date): { date: string; weekday: string; minutes: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: STORE_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  const hour = Number(value("hour"));
+  const minute = Number(value("minute"));
+  return {
+    date: `${value("year")}-${value("month")}-${value("day")}`,
+    weekday: value("weekday"),
+    minutes: (hour % 24) * 60 + minute,
+  };
+}
+
+function cityDate(year: number, month: number, day: number): string {
+  const instant = new Date(Date.UTC(year, month - 1, day, 18, 0));
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: STORE_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(instant);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
+function shiftDate(date: string, days: number): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return cityDate(year, month, day + days);
+}
+
+function weekdayOf(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", { timeZone: STORE_TIME_ZONE, weekday: "short" }).format(new Date(Date.UTC(year, month - 1, day, 18, 0)));
+}
+
+function clockLabel(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+export function orderTimes(date: string, now = new Date()): string[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return [];
+  const today = cityClock(now);
+  const last = shiftDate(today.date, ORDER_HORIZON_DAYS - 1);
+  if (date < today.date || date > last || weekdayOf(date) === "Sun") return [];
+  const times: string[] = [];
+  for (const [start, end] of ORDER_WINDOWS) {
+    for (let minute = start; minute < end; minute += 30) {
+      if (date === today.date && minute <= today.minutes) continue;
+      times.push(clockLabel(minute));
+    }
+  }
+  return times;
+}
+
+export function orderDates(now = new Date()): { date: string; label: string }[] {
+  const today = cityClock(now).date;
+  const dates: { date: string; label: string }[] = [];
+  for (let offset = 0; offset < ORDER_HORIZON_DAYS; offset += 1) {
+    const date = shiftDate(today, offset);
+    if (orderTimes(date, now).length === 0) continue;
+    dates.push({ date, label: formatScheduleDate(date) });
+  }
+  return dates;
+}
+
+export function isOrderSlot(date: string, time: string, now = new Date()): boolean {
+  return orderTimes(date, now).includes(time);
+}
+
+export function formatScheduleDate(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: STORE_TIME_ZONE,
+  }).format(new Date(Date.UTC(year, month - 1, day, 18, 0)));
+}
+
+export function formatScheduleTime(time: string): string {
+  const [hour, minute] = time.split(":").map(Number);
+  return new Intl.DateTimeFormat("es-MX", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: STORE_TIME_ZONE,
+  }).format(new Date(Date.UTC(2026, 0, 1, hour + 6, minute)));
+}
+
+export function formatSchedule(date: string, time: string): string {
+  return `${formatScheduleDate(date)}, ${formatScheduleTime(time)}`;
+}
+
 export function fulfillmentLabel(fulfillment: Fulfillment): string {
   return fulfillment === "pickup" ? "Recoger en el local" : "Envío";
 }
@@ -129,6 +237,8 @@ export function buildWhatsappMessage(input: {
   fulfillment: Fulfillment;
   address: string | null;
   note: string | null;
+  scheduledDate: string;
+  scheduledTime: string;
   publicCode: string;
   totalCents: number;
   items: OrderItem[];
@@ -156,6 +266,7 @@ export function buildWhatsappMessage(input: {
       : `Entrega: recoger en el local. ${STORE_ADDRESS} ${STORE_MAPS_URL}`,
     ...(input.fulfillment === "pickup" ? [`Horario: ${STORE_HOURS}`] : []),
     `Teléfono: ${input.customerPhone}`,
+    `Para: ${formatSchedule(input.scheduledDate, input.scheduledTime)}`,
   ];
   if (input.note) lines.push(`Nota: ${input.note}`);
   lines.push(
@@ -189,6 +300,7 @@ export function ticketLines(order: Order): string[] {
       ? `Envio a: ${order.address}`
       : `Entrega: recoger en el local. ${ticketText(STORE_ADDRESS)} ${STORE_MAPS_URL}`,
     ...(order.fulfillment === "pickup" ? [`Horario: ${ticketText(STORE_HOURS)}`] : []),
+    ...(order.scheduledDate && order.scheduledTime ? [`Para: ${ticketText(formatSchedule(order.scheduledDate, order.scheduledTime))}`] : []),
     "",
   ];
   for (const item of order.items) {

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { formatFlavorCounts } from "../shared/catalog";
+import { formatFlavorCounts, formatScheduleTime, orderDates, orderTimes } from "../shared/catalog";
 import { ApiError, createOrder } from "../lib/api";
 import { useCart } from "../lib/cart";
 import { lockPageScroll } from "../lib/scroll-lock";
@@ -15,12 +15,26 @@ export function CartDrawer() {
   const [fulfillment, setFulfillment] = useState<"pickup" | "delivery">("pickup");
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
+  const dates = orderDates();
+  const [date, setDate] = useState(dates[0]?.date ?? "");
+  const times = orderTimes(date);
+  const [time, setTime] = useState(times[0] ?? "");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState<{ publicCode: string; whatsappUrl: string; totalCents: number; ticketToken: string } | null>(null);
 
   useEffect(() => {
-    if (!open) setDone(null);
+    if (!open) {
+      setDone(null);
+      return;
+    }
+    const nextDates = orderDates();
+    setDate((current) => {
+      const chosen = nextDates.some((day) => day.date === current) ? current : (nextDates[0]?.date ?? "");
+      const slots = orderTimes(chosen);
+      setTime((currentTime) => (slots.includes(currentTime) ? currentTime : (slots[0] ?? "")));
+      return chosen;
+    });
   }, [open]);
 
   useEffect(() => {
@@ -50,6 +64,8 @@ export function CartDrawer() {
         fulfillment,
         address: fulfillment === "delivery" ? address : undefined,
         note: note || undefined,
+        scheduledDate: date,
+        scheduledTime: time,
         items: lines.map((line) => ({
           productId: line.productId,
           quantity: line.quantity,
@@ -153,6 +169,37 @@ export function CartDrawer() {
                 Teléfono
                 <input required inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1 w-full border border-sand bg-white px-3 py-2" />
               </label>
+              <label className="block">
+                Fecha
+                <select
+                  required
+                  value={date}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    const slots = orderTimes(next);
+                    setDate(next);
+                    setTime((current) => (slots.includes(current) ? current : (slots[0] ?? "")));
+                  }}
+                  className="mt-1 w-full border border-sand bg-white px-3 py-2"
+                >
+                  {dates.map((option) => (
+                    <option key={option.date} value={option.date}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                Hora
+                <select required value={time} onChange={(event) => setTime(event.target.value)} className="mt-1 w-full border border-sand bg-white px-3 py-2">
+                  {times.map((slot) => (
+                    <option key={slot} value={slot}>
+                      {formatScheduleTime(slot)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="text-sm text-ink-deep">Lunes a sábado, de 8:00 a. m. a 1:30 p. m. y de 4:30 p. m. a 9:30 p. m. Los domingos no hay servicio.</p>
               <fieldset>
                 <legend>Entrega</legend>
                 <label className="mt-2 flex gap-2">
@@ -185,7 +232,7 @@ export function CartDrawer() {
                   <StoreInfo />
                 </>
               )}
-              <button type="submit" disabled={pending} className="cursor-pointer rounded-full bg-ink px-5 py-3 text-paper disabled:cursor-not-allowed disabled:opacity-60">
+              <button type="submit" disabled={pending || !date || !time} className="cursor-pointer rounded-full bg-ink px-5 py-3 text-paper disabled:cursor-not-allowed disabled:opacity-60">
                 {pending ? "Enviando…" : "Confirmar y abrir WhatsApp"}
               </button>
             </form>

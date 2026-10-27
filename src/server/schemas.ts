@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isFlavorId, type Fulfillment } from "../shared/catalog";
+import { isFlavorId, isOrderSlot, type Fulfillment } from "../shared/catalog";
 
 const money = z.number().int().min(0).max(10_000_000);
 
@@ -10,6 +10,8 @@ export const orderSchema = z
     fulfillment: z.enum(["pickup", "delivery"]),
     address: z.string().trim().max(300).optional(),
     note: z.string().trim().max(400).optional(),
+    scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    scheduledTime: z.string().regex(/^\d{2}:\d{2}$/),
     items: z
       .array(
         z.strictObject({
@@ -29,6 +31,9 @@ export const orderSchema = z
     }
     if (value.fulfillment === "delivery" && (value.address ?? "").trim().length < 8) {
       ctx.addIssue({ code: "custom", path: ["address"], message: "Escribe la dirección de envío" });
+    }
+    if (!isOrderSlot(value.scheduledDate, value.scheduledTime)) {
+      ctx.addIssue({ code: "custom", path: ["scheduledTime"], message: "Elige una hora dentro del horario del local" });
     }
     value.items.forEach((item, index) => {
       for (const flavor of item.flavors ?? []) {

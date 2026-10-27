@@ -1,4 +1,4 @@
-import { formatFlavorCounts, type Order } from "../shared/catalog";
+import { formatFlavorCounts, formatSchedule, type Order } from "../shared/catalog";
 import { Price } from "./Price";
 import { StoreInfo } from "./StoreInfo";
 
@@ -22,6 +22,12 @@ export function TicketView({ order }: { order: Order }) {
         {order.customerName}
         <span className="price"> · {order.customerPhone}</span>
         <br />
+        {order.scheduledDate && order.scheduledTime ? (
+          <>
+            Para el {formatSchedule(order.scheduledDate, order.scheduledTime)}
+            <br />
+          </>
+        ) : null}
         {deliveryAddress ?? (
           <>
             Recoger en el local

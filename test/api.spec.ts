@@ -1,5 +1,6 @@
 import { applyD1Migrations, env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
+import { orderDates, orderTimes } from "../src/shared/catalog";
 import app from "../src/server/index";
 import type { D1Migration } from "@cloudflare/vitest-plugin";
 
@@ -24,6 +25,12 @@ function request(path: string, init?: RequestInit): Promise<Response> {
     headers.set("origin", "https://amaria.test");
   }
   return app.fetch(new Request(`https://amaria.test${path}`, { ...init, headers }), testEnv);
+}
+
+function schedule() {
+  const date = orderDates()[0]?.date ?? "";
+  const time = orderTimes(date)[0] ?? "";
+  return { scheduledDate: date, scheduledTime: time };
 }
 
 async function login(ip = "203.0.113.10"): Promise<string> {
@@ -67,6 +74,7 @@ describe("pedidos", () => {
       method: "POST",
       headers: { "CF-Connecting-IP": "203.0.113.20" },
       body: JSON.stringify({
+        ...schedule(),
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
@@ -83,6 +91,7 @@ describe("pedidos", () => {
       method: "POST",
       headers: { "CF-Connecting-IP": "203.0.113.21" },
       body: JSON.stringify({
+        ...schedule(),
         customerName: "Ana López",
         customerPhone: "312 123 4567",
         fulfillment: "pickup",
@@ -99,9 +108,26 @@ describe("pedidos", () => {
     expect(message).toContain("recoger en el local");
     expect(message).toContain("Calle Ignacio Sandoval 1902-Loc C");
     expect(message).toContain("Domingos: descanso");
+    expect(message).toContain("Para:");
     expect(message).toContain("https://www.google.com/maps/search/");
     expect(message).toContain(body.publicCode);
     expect(message).not.toContain("no debe guardarse");
+  });
+
+  it("rechaza una hora fuera del horario", async () => {
+    const response = await request("/api/orders", {
+      method: "POST",
+      headers: { "CF-Connecting-IP": "203.0.113.27" },
+      body: JSON.stringify({
+        ...schedule(),
+        scheduledTime: "15:00",
+        customerName: "Ana López",
+        customerPhone: "3121234567",
+        fulfillment: "pickup",
+        items: [{ productId: "pastel-zanahoria", quantity: 1 }],
+      }),
+    });
+    expect(response.status).toBe(400);
   });
 
   it("cobra dos pasteles al precio del menú", async () => {
@@ -109,6 +135,7 @@ describe("pedidos", () => {
       method: "POST",
       headers: { "CF-Connecting-IP": "203.0.113.91" },
       body: JSON.stringify({
+        ...schedule(),
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
@@ -126,6 +153,7 @@ describe("pedidos", () => {
       method: "POST",
       headers: { "CF-Connecting-IP": "203.0.113.22" },
       body: JSON.stringify({
+        ...schedule(),
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "delivery",
@@ -138,6 +166,7 @@ describe("pedidos", () => {
       method: "POST",
       headers: { "CF-Connecting-IP": "203.0.113.23" },
       body: JSON.stringify({
+        ...schedule(),
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "delivery",
@@ -165,6 +194,7 @@ describe("pedidos", () => {
       method: "POST",
       headers: { "CF-Connecting-IP": "203.0.113.92" },
       body: JSON.stringify({
+        ...schedule(),
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
@@ -177,6 +207,7 @@ describe("pedidos", () => {
       method: "POST",
       headers: { "CF-Connecting-IP": "203.0.113.93" },
       body: JSON.stringify({
+        ...schedule(),
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
@@ -200,6 +231,7 @@ describe("pedidos", () => {
       method: "POST",
       headers: { "CF-Connecting-IP": "203.0.113.24" },
       body: JSON.stringify({
+        ...schedule(),
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
@@ -224,6 +256,7 @@ describe("pedidos", () => {
       method: "POST",
       headers: { "CF-Connecting-IP": "203.0.113.26" },
       body: JSON.stringify({
+        ...schedule(),
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
@@ -277,6 +310,7 @@ describe("pantalla privada", () => {
       method: "POST",
       headers: { "CF-Connecting-IP": "203.0.113.50" },
       body: JSON.stringify({
+        ...schedule(),
         customerName: "Luis Pérez",
         customerPhone: "3120001122",
         fulfillment: "pickup",
@@ -307,6 +341,7 @@ describe("pantalla privada", () => {
       method: "POST",
       headers: { "CF-Connecting-IP": "203.0.113.80" },
       body: JSON.stringify({
+        ...schedule(),
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
