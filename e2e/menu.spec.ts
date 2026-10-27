@@ -26,8 +26,8 @@ test("el menú se puede pedir por WhatsApp", async ({ page }) => {
   await dialog.getByText("Recoger en el local", { exact: true }).click();
   await dialog.getByLabel("Nombre").fill("Ana López");
   await dialog.getByLabel("Teléfono").fill("3121234567");
-  await dialog.getByLabel("Fecha").selectOption({ index: 0 });
-  await dialog.getByLabel("Hora").selectOption({ index: 0 });
+  await dialog.getByRole("group", { name: "Fecha para tu pedido" }).getByRole("radio").first().click();
+  await dialog.getByRole("group", { name: "¿A qué hora quieres tu pedido?" }).getByRole("radio").first().click();
   await dialog.getByRole("button", { name: "Confirmar y abrir WhatsApp" }).click();
   await expect(dialog.getByRole("link", { name: "Abrir WhatsApp" })).toHaveAttribute("href", /wa\.me\/5213123769977/);
   await expect(dialog.getByRole("link", { name: "Abrir WhatsApp" })).toHaveAttribute("href", /Pastel%20de%20zanahoria|Pastel\+de\+zanahoria/);
