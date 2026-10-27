@@ -58,6 +58,10 @@ export function adminOrders() {
   return request<{ orders: Order[] }>("/api/admin/orders");
 }
 
+export function deleteOrder(id: string) {
+  return request<{ ok: boolean }>(`/api/admin/orders/${id}`, { method: "DELETE" });
+}
+
 export function updateOrderStatus(id: string, status: Order["status"]) {
   return request<{ ok: boolean }>(`/api/admin/orders/${id}`, {
     method: "PATCH",

@@ -288,14 +288,12 @@ export function ticketLines(order: Order): string[] {
     "",
     `Folio: ${order.publicCode}`,
     `Fecha: ${when}`,
-    `Estado: ${ticketStatus(order.status)}`,
     "",
     `Cliente: ${order.customerName}`,
     `Telefono: ${order.customerPhone}`,
     order.fulfillment === "delivery" && order.address
       ? `Envio a: ${order.address}`
-      : `Entrega: recoger en el local. ${ticketText(STORE_ADDRESS)} ${STORE_MAPS_URL}`,
-    ...(order.fulfillment === "pickup" ? [`Horario: ${ticketText(STORE_HOURS)}`] : []),
+      : `Recoger en el local. ${ticketText(STORE_ADDRESS)}`,
     ...(order.scheduledDate && order.scheduledTime ? [`Para: ${ticketText(formatSchedule(order.scheduledDate, order.scheduledTime))}`] : []),
     "",
   ];
@@ -312,12 +310,6 @@ export function ticketLines(order: Order): string[] {
 
 function ticketText(value: string): string {
   return value.normalize("NFD").replace(/\p{M}/gu, "");
-}
-
-function ticketStatus(status: OrderStatus): string {
-  if (status === "nuevo") return "Nuevo";
-  if (status === "en_preparacion") return "En preparacion";
-  return "Listo";
 }
 
 function wrapTicketLine(line: string, width: number): string[] {

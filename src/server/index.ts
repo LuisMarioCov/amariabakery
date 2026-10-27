@@ -3,7 +3,7 @@ import { assertSameOrigin, clearSessionCookie, isAdmin, login, requireAdmin, ses
 import { HttpError, securityHeaders } from "./errors";
 import { getProduct, getProductByPhoto, listCategories, slugify } from "./menu";
 import { ticketLines, type Order } from "../shared/catalog";
-import { createOrder, findOrder, listOrders, updateOrderStatus } from "./orders";
+import { createOrder, deleteOrder, findOrder, listOrders, updateOrderStatus } from "./orders";
 import { assertLoginRate, assertOrderRate, assertRateLimit, clientAddress } from "./rate-limit";
 import { buildTicketPdf } from "./ticket-pdf";
 import { issueTicketToken, readTicketOrderId } from "./ticket";
@@ -123,6 +123,13 @@ app.get("/api/admin/orders/:id/pdf", async (c) => {
   const order = await findOrder(c.env.DB, c.req.param("id"));
   if (!order) throw new HttpError(404, "No encontramos ese pedido");
   return ticketPdfResponse(order, c.req.query("descarga") !== "0");
+});
+
+app.delete("/api/admin/orders/:id", async (c) => {
+  assertSameOrigin(c.req.raw);
+  await requireAdmin(c.req.raw, c.env.SESSION_SECRET);
+  await deleteOrder(c.env.DB, c.req.param("id"));
+  return c.json({ ok: true });
 });
 
 app.patch("/api/admin/orders/:id", async (c) => {

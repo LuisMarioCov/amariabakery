@@ -13,11 +13,14 @@ const columns: { status: OrderStatus; title: string; tone: string }[] = [
 export function OrderBoard({
   orders,
   onStatus,
+  onDelete,
 }: {
   orders: Order[];
   onStatus: (id: string, status: OrderStatus) => void;
+  onDelete: (id: string) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [armedId, setArmedId] = useState<string | null>(null);
   const selected = orders.find((order) => order.id === selectedId) ?? null;
   const titleId = useId();
 
@@ -48,8 +51,8 @@ export function OrderBoard({
               </h3>
               <ul className="mt-3 space-y-3">
                 {cards.map((order) => (
-                  <li key={order.id}>
-                    <button type="button" className="w-full cursor-pointer bg-white p-3 text-left" onClick={() => setSelectedId(order.id)}>
+                  <li key={order.id} className="relative bg-white">
+                    <button type="button" className="w-full cursor-pointer p-3 pr-12 text-left" onClick={() => { setArmedId(null); setSelectedId(order.id); }}>
                       <span className="price text-sm text-ink-deep">{order.publicCode}</span>
                       <span className="mt-1 block font-display text-xl text-ink">{order.customerName}</span>
                       {order.scheduledDate && order.scheduledTime ? (
@@ -62,6 +65,23 @@ export function OrderBoard({
                         </span>
                         <Price cents={order.totalCents} />
                       </span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`absolute top-2 right-2 grid h-7 w-7 cursor-pointer place-items-center rounded-full bg-[#f3c9c6] text-[#6b3330] ${armedId === order.id ? "ring-2 ring-[#6b3330]" : ""}`}
+                      aria-label={armedId === order.id ? `Confirmar borrar pedido ${order.publicCode}` : `Borrar pedido ${order.publicCode}`}
+                      aria-pressed={armedId === order.id}
+                      onClick={() => {
+                        if (armedId !== order.id) {
+                          setArmedId(order.id);
+                          return;
+                        }
+                        setArmedId(null);
+                        if (selectedId === order.id) setSelectedId(null);
+                        onDelete(order.id);
+                      }}
+                    >
+                      <TrashIcon />
                     </button>
                   </li>
                 ))}
@@ -116,5 +136,15 @@ export function OrderBoard({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 7h16" />
+      <path d="M9 7V5h6v2" />
+      <path d="M7 7l1 13h8l1-13" />
+    </svg>
   );
 }

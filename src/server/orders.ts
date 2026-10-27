@@ -232,6 +232,15 @@ function toOrder(order: OrderRow, items: ItemRow[]): Order {
   };
 }
 
+export async function deleteOrder(db: D1Database, id: string): Promise<void> {
+  const existing = await db.prepare("SELECT id FROM orders WHERE id = ?").bind(id).first<{ id: string }>();
+  if (!existing) throw new HttpError(404, "No encontramos ese pedido");
+  await db.batch([
+    db.prepare("DELETE FROM order_items WHERE order_id = ?").bind(id),
+    db.prepare("DELETE FROM orders WHERE id = ?").bind(id),
+  ]);
+}
+
 export async function updateOrderStatus(db: D1Database, id: string, status: OrderStatus): Promise<void> {
   const result = await db.prepare("UPDATE orders SET status = ? WHERE id = ?").bind(status, id).run();
   if ((result.meta.changes ?? 0) === 0) throw new HttpError(404, "No encontramos ese pedido");

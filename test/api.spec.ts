@@ -359,6 +359,16 @@ describe("pantalla privada", () => {
     const orders = await request("/api/admin/orders", { headers: { cookie } });
     const list = await orders.json<{ orders: { id: string; status: string }[] }>();
     expect(list.orders.find((item) => item.id === order.id)?.status).toBe("en_preparacion");
+
+    const denied = await request(`/api/admin/orders/${order.id}`, { method: "DELETE" });
+    expect(denied.status).toBe(401);
+    const removed = await request(`/api/admin/orders/${order.id}`, { method: "DELETE", headers: { cookie } });
+    expect(removed.status).toBe(200);
+    const after = await request("/api/admin/orders", { headers: { cookie } });
+    const remaining = await after.json<{ orders: { id: string }[] }>();
+    expect(remaining.orders.find((item) => item.id === order.id)).toBeUndefined();
+    const missing = await request(`/api/admin/orders/${order.id}`, { method: "DELETE", headers: { cookie } });
+    expect(missing.status).toBe(404);
   });
 
   it("entrega el ticket al cliente y al admin", async () => {

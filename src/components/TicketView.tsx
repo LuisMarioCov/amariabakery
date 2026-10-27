@@ -1,6 +1,6 @@
 import { formatFlavorCounts, formatSchedule, paymentSentence, type Order } from "../shared/catalog";
 import { Price } from "./Price";
-import { StoreInfo } from "./StoreInfo";
+import { StoreMapLink } from "./StoreMapLink";
 
 export function TicketView({ order }: { order: Order }) {
   const when = new Intl.DateTimeFormat("es-MX", {
@@ -10,43 +10,50 @@ export function TicketView({ order }: { order: Order }) {
   }).format(new Date(order.createdAt));
   const deliveryAddress = order.fulfillment === "delivery" && order.address ? order.address : null;
   return (
-    <article className="mx-auto max-w-sm bg-white px-6 py-7 text-sm text-ink-deep">
-      <img src="/brand/logo-seal.webp" alt="" width="160" height="155" className="mx-auto h-16 w-auto" />
-      <p className="mt-3 text-center font-display text-2xl tracking-wide text-ink">Amaría</p>
-      <p className="mt-3 text-center">
-        <span className="price text-ink">{order.publicCode}</span>
-        <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${statusTone(order.status)}`}>{statusWord(order.status)}</span>
-      </p>
-      <p className="mt-1 text-center text-xs text-slate">{when}</p>
-      <p className="mt-5 text-center text-xs leading-5">
-        {order.customerName}
-        <span className="price"> · {order.customerPhone}</span>
-        <br />
+    <article className="mx-auto max-w-sm bg-white px-7 py-8 text-ink-deep">
+      <img src="/brand/logo-seal.webp" alt="" width="160" height="155" className="mx-auto h-14 w-auto" />
+      <p className="mt-4 text-center font-display text-3xl text-ink">Amaría</p>
+      <p className="price mt-2 text-center text-lg text-ink">{order.publicCode}</p>
+      <p className="mt-1 text-center text-sm text-slate">{when}</p>
+
+      <div className="mt-8 space-y-5 text-sm leading-relaxed">
+        <div>
+          <p className="text-slate">Cliente</p>
+          <p className="mt-1 text-base text-ink">{order.customerName}</p>
+          <p className="price">{order.customerPhone}</p>
+        </div>
         {order.scheduledDate && order.scheduledTime ? (
-          <>
-            Para el {formatSchedule(order.scheduledDate, order.scheduledTime)}
-            <br />
-          </>
+          <div>
+            <p className="text-slate">Para</p>
+            <p className="mt-1 text-base">{formatSchedule(order.scheduledDate, order.scheduledTime)}</p>
+          </div>
         ) : null}
-        {deliveryAddress ?? (
-          <>
-            Recoger en el local
-            <br />
-            <StoreInfo />
-          </>
-        )}
-      </p>
-      <ul className="mt-5 space-y-3 border-t border-sand pt-4">
+        <div>
+          <p className="text-slate">Entrega</p>
+          {deliveryAddress ? (
+            <p className="mt-1 text-base">{deliveryAddress}</p>
+          ) : (
+            <>
+              <p className="mt-1 text-base">Recoger en el local</p>
+              <p className="mt-1">
+                <StoreMapLink split />
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+
+      <ul className="mt-8 space-y-4 border-t border-sand pt-5">
         {order.items.map((item) => (
           <li key={`${item.productId}-${item.productName}-${item.lineTotalCents}`}>
-            <p className="flex items-baseline justify-between gap-4">
+            <p className="flex items-baseline justify-between gap-4 text-base">
               <span>
                 {item.quantity} × {item.productName}
               </span>
               <Price cents={item.lineTotalCents} />
             </p>
             {item.gift !== null || item.flavors.length > 0 ? (
-              <p className="mt-0.5 text-xs text-slate">
+              <p className="mt-1 text-sm text-slate">
                 {item.gift === null ? "" : item.gift ? "Regalo" : "Sin regalo"}
                 {item.gift !== null && item.flavors.length > 0 ? " · " : ""}
                 {item.flavors.length > 0 ? formatFlavorCounts(item.flavors) : ""}
@@ -55,26 +62,12 @@ export function TicketView({ order }: { order: Order }) {
           </li>
         ))}
       </ul>
-      <p className="mt-5 flex items-baseline justify-between border-t border-sand pt-4">
-        <span className="text-ink">Total</span>
-        <Price cents={order.totalCents} className="text-lg text-ink" />
+      <p className="mt-6 flex items-baseline justify-between border-t border-sand pt-5">
+        <span className="font-display text-2xl text-ink">Total</span>
+        <Price cents={order.totalCents} className="text-2xl text-ink" />
       </p>
-      {order.note ? <p className="mt-3 text-center text-xs text-slate">Nota: {order.note}</p> : null}
-      <p className="mt-4 text-center text-xs text-slate">
-        {paymentSentence(order.paymentMethod, order.fulfillment)}
-      </p>
+      {order.note ? <p className="mt-5 text-sm leading-relaxed">Nota: {order.note}</p> : null}
+      <p className="mt-4 text-sm leading-relaxed">{paymentSentence(order.paymentMethod, order.fulfillment)}</p>
     </article>
   );
-}
-
-function statusWord(status: Order["status"]): string {
-  if (status === "nuevo") return "Nuevo";
-  if (status === "en_preparacion") return "Preparando";
-  return "Listo";
-}
-
-function statusTone(status: Order["status"]): string {
-  if (status === "nuevo") return "bg-[#d0dce9] text-ink-deep";
-  if (status === "en_preparacion") return "bg-[#f3e6cf] text-ink-deep";
-  return "bg-[#dce8df] text-ink-deep";
 }

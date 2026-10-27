@@ -9,6 +9,7 @@ import {
   adminSession,
   createCategory,
   createProduct,
+  deleteOrder,
   deleteProduct,
   updateOrderStatus,
   updateProduct,
@@ -160,6 +161,16 @@ export function AdminPage() {
     }
   }
 
+  async function removeOrder(id: string) {
+    setError("");
+    try {
+      await deleteOrder(id);
+      setOrders((current) => current.filter((order) => order.id !== id));
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "No se pudo eliminar el pedido");
+    }
+  }
+
   async function changeStatus(id: string, status: OrderStatus) {
     setError("");
     try {
@@ -221,7 +232,7 @@ export function AdminPage() {
                 Pedidos
               </h2>
               {error ? <p role="alert">{error}</p> : null}
-              <OrderBoard orders={orders} onStatus={(id, status) => void changeStatus(id, status)} />
+              <OrderBoard orders={orders} onStatus={(id, status) => void changeStatus(id, status)} onDelete={(id) => void removeOrder(id)} />
             </section>
           ) : (
           <section className="mt-6" aria-labelledby="productos-titulo">
