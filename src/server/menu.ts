@@ -16,6 +16,21 @@ type ProductRow = {
   sort_order: number;
 };
 
+const MENU_PHOTOS = new Set([
+  "pastel-zanahoria",
+  "panque-platano",
+  "bruce-cake",
+  "tarta-tiramisu",
+  "cheesecake-limon",
+  "cheesecake-fresa",
+]);
+
+function productPhoto(row: ProductRow): string | null {
+  if (row.photo_key) return `/api/media/${row.photo_key}`;
+  if (MENU_PHOTOS.has(row.id)) return `/menu/${row.id}.webp`;
+  return null;
+}
+
 function toProduct(row: ProductRow): Product {
   return {
     id: row.id,
@@ -24,7 +39,7 @@ function toProduct(row: ProductRow): Product {
     description: row.description,
     priceCents: row.price_cents,
     available: row.available === 1,
-    photoUrl: row.photo_key ? `/api/media/${row.photo_key}` : null,
+    photoUrl: productPhoto(row),
     kind: row.kind,
     cookieCount: row.cookie_count,
   };
