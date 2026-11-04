@@ -23,6 +23,8 @@ const MENU_PHOTOS = new Set([
   "tarta-tiramisu",
   "cheesecake-limon",
   "cheesecake-fresa",
+  "caja-3-galletas",
+  "caja-6-galletas",
 ]);
 
 function productPhoto(row: ProductRow): string | null {
