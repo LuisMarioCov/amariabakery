@@ -122,6 +122,17 @@ const ORDER_WINDOWS: [number, number][] = [
   [16 * 60 + 30, 21 * 60 + 30],
 ];
 const ORDER_HORIZON_DAYS = 14;
+const ORDER_LEAD_DAYS = 2;
+
+export const PICKUP_NOTES = [
+  "Solo recoger en el local. No hay envío a domicilio.",
+  "El pedido se aparta con un anticipo del 50% por transferencia. El resto se paga al recoger.",
+  "Se pide con al menos 2 días de anticipación.",
+] as const;
+
+export function depositCents(totalCents: number): number {
+  return Math.round(totalCents / 2);
+}
 
 function cityClock(now: Date): { date: string; weekday: string; minutes: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -173,12 +184,12 @@ function clockLabel(minutes: number): string {
 export function orderTimes(date: string, now = new Date()): string[] {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return [];
   const today = cityClock(now);
+  const first = shiftDate(today.date, ORDER_LEAD_DAYS);
   const last = shiftDate(today.date, ORDER_HORIZON_DAYS - 1);
-  if (date < today.date || date > last || weekdayOf(date) === "Sun") return [];
+  if (date < first || date > last || weekdayOf(date) === "Sun") return [];
   const times: string[] = [];
   for (const [start, end] of ORDER_WINDOWS) {
     for (let minute = start; minute < end; minute += 30) {
-      if (date === today.date && minute <= today.minutes) continue;
       times.push(clockLabel(minute));
     }
   }
@@ -188,7 +199,7 @@ export function orderTimes(date: string, now = new Date()): string[] {
 export function orderDates(now = new Date()): { date: string; label: string }[] {
   const today = cityClock(now).date;
   const dates: { date: string; label: string }[] = [];
-  for (let offset = 0; offset < ORDER_HORIZON_DAYS; offset += 1) {
+  for (let offset = ORDER_LEAD_DAYS; offset < ORDER_HORIZON_DAYS; offset += 1) {
     const date = shiftDate(today, offset);
     if (orderTimes(date, now).length === 0) continue;
     dates.push({ date, label: formatScheduleDate(date) });
@@ -269,7 +280,7 @@ export function buildWhatsappMessage(input: {
     "",
     input.fulfillment === "delivery" && input.address
       ? `Envío a: ${input.address}. ${paymentSentence(input.payment, input.fulfillment)}`
-      : `Lo recojo en el local. ${paymentSentence(input.payment, input.fulfillment)}`,
+      : `Lo recojo en el local. Anticipo del 50% (${formatMoney(depositCents(input.totalCents))}) por transferencia. El resto se paga al recoger. Adjunto el comprobante.`,
   ];
   if (input.note) lines.push(`Nota: ${input.note}`);
   lines.push(`Teléfono: ${input.customerPhone}`, `Folio: ${input.publicCode}`);
@@ -303,7 +314,15 @@ export function ticketLines(order: Order): string[] {
     if (item.flavors.length > 0) lines.push(`   ${formatFlavorCounts(item.flavors).replaceAll("×", "x")}`);
   }
   lines.push("", `Total: ${formatMoney(order.totalCents)}`);
-  lines.push(ticketText(paymentSentence(order.paymentMethod, order.fulfillment)));
+  if (order.fulfillment === "pickup") {
+    lines.push(
+      `Anticipo 50%: ${formatMoney(depositCents(order.totalCents))}`,
+      `Resto al recoger: ${formatMoney(order.totalCents - depositCents(order.totalCents))}`,
+    );
+    for (const note of PICKUP_NOTES) lines.push(ticketText(note));
+  } else {
+    lines.push(ticketText(paymentSentence(order.paymentMethod, order.fulfillment)));
+  }
   if (order.note) lines.push(`Nota: ${order.note}`);
   return lines.flatMap((line) => wrapTicketLine(line, 72));
 }

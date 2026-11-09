@@ -13,7 +13,7 @@ export function SiteFooter({ instagram, whatsapp }: { instagram: string; whatsap
         </div>
         <StoreInfo lines />
         <div className="text-sm leading-relaxed text-ink-deep sm:justify-self-end sm:text-right">
-          <p>Pago en efectivo o transferencia al recoger o al entregar.</p>
+          <p>Solo recoger en el local. Anticipo del 50% por transferencia; el resto se paga al recoger.</p>
           <p className="mt-2 flex gap-4 sm:justify-end">
             <a className="text-ink underline" href={`https://wa.me/${whatsapp}`}>
               WhatsApp

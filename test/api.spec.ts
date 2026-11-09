@@ -33,6 +33,25 @@ function schedule() {
   return { scheduledDate: date, scheduledTime: time };
 }
 
+function mexicoDate(offsetDays: number): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  const shifted = new Date(Date.UTC(Number(value("year")), Number(value("month")) - 1, Number(value("day")) + offsetDays, 18, 0));
+  const next = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(shifted);
+  const part = (type: string) => next.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 async function login(ip = "203.0.113.10"): Promise<string> {
   const response = await request("/api/admin/login", {
     method: "POST",
@@ -78,7 +97,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
-        payment: "tienda",
+        payment: "transferencia",
         address: "no debe guardarse",
         priceCents: 1,
         items: [{ productId: "pastel-zanahoria", quantity: 2 }],
@@ -96,7 +115,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
-        payment: "tienda",
+        payment: "transferencia",
         items: [{ productId: "pastel-zanahoria", quantity: 1 }],
       }),
     });
@@ -108,7 +127,7 @@ describe("pedidos", () => {
     expect(message).toContain("Quiero este pedido para el");
     expect(message).toContain("Pastel de zanahoria");
     expect(message).toContain("$480");
-    expect(message).toContain("Lo recojo en el local. Pago en tienda.");
+    expect(message).toContain("Lo recojo en el local. Anticipo del 50% ($240) por transferencia. El resto se paga al recoger. Adjunto el comprobante.");
     expect(message).toContain("Teléfono: 3121234567");
     expect(message).toContain(`Folio: ${body.publicCode}`);
     expect(message).not.toContain("https://www.google.com/maps/search/");
@@ -125,7 +144,7 @@ describe("pedidos", () => {
           customerName: "Ana López",
           customerPhone,
           fulfillment: "pickup",
-          payment: "tienda",
+          payment: "transferencia",
           items: [{ productId: "pastel-zanahoria", quantity: 1 }],
         }),
       });
@@ -145,7 +164,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
-        payment: "tienda",
+        payment: "transferencia",
         items: [{ productId: "pastel-zanahoria", quantity: 1 }],
       }),
     });
@@ -161,7 +180,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
-        payment: "tienda",
+        payment: "transferencia",
         items: [{ productId: "pastel-zanahoria", quantity: 2 }],
       }),
     });
@@ -171,8 +190,13 @@ describe("pedidos", () => {
     expect(decodeURIComponent(body.whatsappUrl)).toContain("2 × Pastel de zanahoria — $960");
   });
 
-  it("exige dirección solo para envío", async () => {
-    const missing = await request("/api/orders", {
+  it("solo acepta recoger en el local con anticipo por transferencia", async () => {
+    const dates = orderDates().map((day) => day.date);
+    expect(dates[0] >= mexicoDate(2)).toBe(true);
+    expect(dates).not.toContain(mexicoDate(0));
+    expect(dates).not.toContain(mexicoDate(1));
+
+    const delivered = await request("/api/orders", {
       method: "POST",
       headers: { "CF-Connecting-IP": "203.0.113.22" },
       body: JSON.stringify({
@@ -181,10 +205,43 @@ describe("pedidos", () => {
         customerPhone: "3121234567",
         fulfillment: "delivery",
         payment: "transferencia",
+        address: "Calle Reforma 12, Colima",
         items: [{ productId: "cheesecake-fresa", quantity: 1 }],
       }),
     });
-    expect(missing.status).toBe(400);
+    expect(delivered.status).toBe(400);
+    expect((await delivered.json<{ error: string }>()).error).toBe("Por ahora solo se recogen pedidos en el local");
+
+    const inStore = await request("/api/orders", {
+      method: "POST",
+      headers: { "CF-Connecting-IP": "203.0.113.28" },
+      body: JSON.stringify({
+        ...schedule(),
+        customerName: "Ana López",
+        customerPhone: "3121234567",
+        fulfillment: "pickup",
+        payment: "tienda",
+        items: [{ productId: "cheesecake-fresa", quantity: 1 }],
+      }),
+    });
+    expect(inStore.status).toBe(400);
+    expect((await inStore.json<{ error: string }>()).error).toBe("El anticipo se paga por transferencia");
+
+    const tooSoon = await request("/api/orders", {
+      method: "POST",
+      headers: { "CF-Connecting-IP": "203.0.113.29" },
+      body: JSON.stringify({
+        scheduledDate: mexicoDate(1),
+        scheduledTime: "10:00",
+        customerName: "Ana López",
+        customerPhone: "3121234567",
+        fulfillment: "pickup",
+        payment: "transferencia",
+        items: [{ productId: "cheesecake-fresa", quantity: 1 }],
+      }),
+    });
+    expect(tooSoon.status).toBe(400);
+    expect((await tooSoon.json<{ error: string }>()).error).toBe("Los pedidos se recogen a partir de 2 días, en el horario del local");
 
     const sent = await request("/api/orders", {
       method: "POST",
@@ -193,9 +250,8 @@ describe("pedidos", () => {
         ...schedule(),
         customerName: "Ana López",
         customerPhone: "3121234567",
-        fulfillment: "delivery",
+        fulfillment: "pickup",
         payment: "transferencia",
-        address: "Calle Reforma 12, Colima",
         items: [
           {
             productId: "caja-3-galletas",
@@ -209,24 +265,10 @@ describe("pedidos", () => {
     expect(sent.status).toBe(201);
     const body = await sent.json<{ whatsappUrl: string; totalCents: number }>();
     expect(body.totalCents).toBe(21000);
-    expect(decodeURIComponent(body.whatsappUrl)).toContain("Calle Reforma 12, Colima");
-    expect(decodeURIComponent(body.whatsappUrl)).toContain("Regalo: sí");
-    expect(decodeURIComponent(body.whatsappUrl)).toContain("Pago por transferencia. Adjunto el comprobante.");
-
-    const inStore = await request("/api/orders", {
-      method: "POST",
-      headers: { "CF-Connecting-IP": "203.0.113.28" },
-      body: JSON.stringify({
-        ...schedule(),
-        customerName: "Ana López",
-        customerPhone: "3121234567",
-        fulfillment: "delivery",
-        payment: "tienda",
-        address: "Calle Reforma 12, Colima",
-        items: [{ productId: "cheesecake-fresa", quantity: 1 }],
-      }),
-    });
-    expect(inStore.status).toBe(400);
+    const message = decodeURIComponent(body.whatsappUrl);
+    expect(message).toContain("Regalo: sí");
+    expect(message).toContain("Anticipo del 50% ($105) por transferencia");
+    expect(message).not.toContain("Calle Reforma");
   });
 
   it("pide una galleta por cada lugar de cada caja", async () => {
@@ -238,7 +280,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
-        payment: "tienda",
+        payment: "transferencia",
         items: [{ productId: "caja-3-galletas", quantity: 2, gift: false, flavors: ["chispas", "lotus", "manzana"] }],
       }),
     });
@@ -252,7 +294,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
-        payment: "tienda",
+        payment: "transferencia",
         items: [
           {
             productId: "caja-3-galletas",
@@ -277,7 +319,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
-        payment: "tienda",
+        payment: "transferencia",
         items: [{ productId: "caja-6-galletas", quantity: 1, gift: false, flavors: ["chispas"] }],
       }),
     });
@@ -303,7 +345,7 @@ describe("pedidos", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
-        payment: "tienda",
+        payment: "transferencia",
         items: [{ productId: "bruce-cake", quantity: 1 }],
       }),
     });
@@ -358,7 +400,7 @@ describe("pantalla privada", () => {
         customerName: "Luis Pérez",
         customerPhone: "3120001122",
         fulfillment: "pickup",
-        payment: "tienda",
+        payment: "transferencia",
         items: [{ productId: "tarta-tiramisu", quantity: 1 }],
       }),
     });
@@ -400,7 +442,7 @@ describe("pantalla privada", () => {
         customerName: "Ana López",
         customerPhone: "3121234567",
         fulfillment: "pickup",
-        payment: "tienda",
+        payment: "transferencia",
         items: [{ productId: "pastel-zanahoria", quantity: 1 }],
       }),
     });

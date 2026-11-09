@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
-import type { PaymentMethod } from "../shared/catalog";
-import { formatFlavorCounts, formatScheduleTime, orderDates, orderTimes } from "../shared/catalog";
+import { depositCents, formatFlavorCounts, formatScheduleTime, orderDates, orderTimes, PICKUP_NOTES } from "../shared/catalog";
 import { ApiError, createOrder } from "../lib/api";
 import { useCart } from "../lib/cart";
 import { lockPageScroll } from "../lib/scroll-lock";
@@ -89,8 +88,6 @@ export function CartDrawer() {
   const titleId = useId();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [fulfillment, setFulfillment] = useState<"pickup" | "delivery">("pickup");
-  const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
   const dates = orderDates();
   const [date, setDate] = useState(dates[0]?.date ?? "");
@@ -100,14 +97,12 @@ export function CartDrawer() {
   const afternoon = times.filter((slot) => slot >= "16:30");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [step, setStep] = useState<"details" | "pay" | "bank">("details");
-  const [payment, setPayment] = useState<PaymentMethod | "">("");
+  const [step, setStep] = useState<"details" | "bank">("details");
   const [copied, setCopied] = useState("");
 
   useEffect(() => {
     if (!open) {
       setStep("details");
-      setPayment("");
       setCopied("");
       setError("");
       return;
@@ -140,12 +135,7 @@ export function CartDrawer() {
   function continueOrder(event: FormEvent) {
     event.preventDefault();
     setError("");
-    if (fulfillment === "delivery") {
-      setPayment("transferencia");
-      setStep("bank");
-      return;
-    }
-    setStep("pay");
+    setStep("bank");
   }
 
   async function copyDetail(label: string, value: string) {
@@ -174,7 +164,7 @@ export function CartDrawer() {
     }
   }
 
-  async function place(method: PaymentMethod) {
+  async function place() {
     setError("");
     setPending(true);
     const popup = window.open("", "_blank");
@@ -182,12 +172,11 @@ export function CartDrawer() {
       const order = await createOrder({
         customerName: name,
         customerPhone: phone,
-        fulfillment,
-        address: fulfillment === "delivery" ? address : undefined,
+        fulfillment: "pickup",
         note: note || undefined,
         scheduledDate: date,
         scheduledTime: time,
-        payment: method,
+        payment: "transferencia",
         items: lines.map((line) => ({
           productId: line.productId,
           quantity: line.quantity,
@@ -197,7 +186,6 @@ export function CartDrawer() {
       clear();
       setNote("");
       setStep("details");
-      setPayment("");
       setOpen(false);
       if (popup) popup.location.href = order.whatsappUrl;
       else window.location.assign(order.whatsappUrl);
@@ -229,53 +217,16 @@ export function CartDrawer() {
         <div className="flex min-h-0 flex-1 flex-col">
           {lines.length === 0 ? (
             <p className="px-6 py-6">El carrito está vacío.</p>
-          ) : step === "pay" ? (
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
-                <FormBlock title="¿Cómo quieres pagar?">
-                  <div className="grid gap-2">
-                    <label className={`relative flex cursor-pointer gap-3 border p-4 ${payment === "tienda" ? "border-ink bg-white" : "border-sand bg-paper"}`}>
-                      <input type="radio" name="payment" className="sr-only" checked={payment === "tienda"} onChange={() => setPayment("tienda")} />
-                      <span className={`mt-1 h-4 w-4 shrink-0 rounded-full border ${payment === "tienda" ? "border-ink bg-ink shadow-[inset_0_0_0_3px_#f1f1ef]" : "border-slate bg-white"}`} aria-hidden="true" />
-                      <span>
-                        <span className="block font-display text-xl leading-tight text-ink">Pagar en tienda</span>
-                        <span className="mt-1 block text-sm text-ink-deep">Pagas al recoger tu pedido.</span>
-                      </span>
-                    </label>
-                    <label className={`relative flex cursor-pointer gap-3 border p-4 ${payment === "transferencia" ? "border-ink bg-white" : "border-sand bg-paper"}`}>
-                      <input type="radio" name="payment" className="sr-only" checked={payment === "transferencia"} onChange={() => setPayment("transferencia")} />
-                      <span className={`mt-1 h-4 w-4 shrink-0 rounded-full border ${payment === "transferencia" ? "border-ink bg-ink shadow-[inset_0_0_0_3px_#f1f1ef]" : "border-slate bg-white"}`} aria-hidden="true" />
-                      <span>
-                        <span className="block font-display text-xl leading-tight text-ink">Transferencia</span>
-                        <span className="mt-1 block text-sm text-ink-deep">Te mostramos los datos para pagar.</span>
-                      </span>
-                    </label>
-                  </div>
-                </FormBlock>
-              </div>
-              <div className="border-t border-sand bg-paper px-5 py-4">
-                {error ? <p role="alert" className="mb-3 text-sm text-[#b4332a]">{error}</p> : null}
-                <button type="button" className="mb-3 cursor-pointer text-sm text-ink underline" onClick={() => setStep("details")}>
-                  Volver
-                </button>
-                <button
-                  type="button"
-                  disabled={pending || payment === ""}
-                  className="w-full cursor-pointer rounded-full bg-ink px-5 py-3 text-paper disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={() => {
-                    if (payment === "tienda") void place("tienda");
-                    if (payment === "transferencia") setStep("bank");
-                  }}
-                >
-                  {pending ? "Enviando…" : "Siguiente"}
-                </button>
-              </div>
-            </div>
           ) : step === "bank" ? (
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
-                <FormBlock title="Datos para la transferencia" hint="Por ahora estos datos son de ejemplo.">
-                  <div className="space-y-2">
+                <FormBlock title="Anticipo del 50%" hint="Por ahora estos datos de transferencia son de ejemplo.">
+                  <p className="flex items-baseline justify-between gap-4 border border-sand bg-white px-4 py-3">
+                    <span>A transferir</span>
+                    <Price cents={depositCents(totalCents)} className="text-xl text-ink" />
+                  </p>
+                  <p className="mt-3 text-sm leading-relaxed text-ink-deep">El resto, <Price cents={totalCents - depositCents(totalCents)} />{`, se paga al recoger.`}</p>
+                  <div className="mt-4 space-y-2">
                     {TRANSFER_DETAILS.map((detail) => (
                       <CopyRow key={detail.label} label={detail.label} value={detail.value} copied={copied} onCopy={copyDetail} />
                     ))}
@@ -286,10 +237,10 @@ export function CartDrawer() {
               </div>
               <div className="border-t border-sand bg-paper px-5 py-4">
                 {error ? <p role="alert" className="mb-3 text-sm text-[#b4332a]">{error}</p> : null}
-                <button type="button" className="mb-3 cursor-pointer text-sm text-ink underline" onClick={() => setStep(fulfillment === "delivery" ? "details" : "pay")}>
+                <button type="button" className="mb-3 cursor-pointer text-sm text-ink underline" onClick={() => setStep("details")}>
                   Volver
                 </button>
-                <button type="button" disabled={pending} className="w-full cursor-pointer rounded-full bg-ink px-5 py-3 text-paper disabled:cursor-not-allowed disabled:opacity-60" onClick={() => void place("transferencia")}>
+                <button type="button" disabled={pending} className="w-full cursor-pointer rounded-full bg-ink px-5 py-3 text-paper disabled:cursor-not-allowed disabled:opacity-60" onClick={() => void place()}>
                   {pending ? "Enviando…" : "Listo"}
                 </button>
               </div>
@@ -329,10 +280,16 @@ export function CartDrawer() {
                     </li>
                   ))}
                 </ul>
-                <p className="flex items-baseline justify-between gap-4">
-                  <span className="font-display text-2xl text-ink">Total</span>
-                  <Price cents={totalCents} className="text-2xl text-ink-deep" />
-                </p>
+                <div className="space-y-2">
+                  <p className="flex items-baseline justify-between gap-4">
+                    <span className="font-display text-2xl text-ink">Total</span>
+                    <Price cents={totalCents} className="text-2xl text-ink-deep" />
+                  </p>
+                  <p className="flex items-baseline justify-between gap-4 text-sm">
+                    <span>Anticipo del 50%</span>
+                    <Price cents={depositCents(totalCents)} />
+                  </p>
+                </div>
                 <FormBlock title="Tus datos">
                   <div className="space-y-4">
                     <label className="block text-sm text-ink">
@@ -345,7 +302,7 @@ export function CartDrawer() {
                     </label>
                   </div>
                 </FormBlock>
-                <FormBlock title="Fecha para tu pedido" hint="Lunes a sábado. Los domingos no hay servicio.">
+                <FormBlock title="Fecha para tu pedido" hint="A partir de 2 días. Lunes a sábado. Los domingos no hay servicio.">
                   <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
                     {dates.map((option) => {
                       const chip = dayChip(option.date);
@@ -379,48 +336,21 @@ export function CartDrawer() {
                     <TimeChoices title="Tarde" slots={afternoon} selected={time} onSelect={setTime} />
                   </div>
                 </FormBlock>
-                <FormBlock title="¿Cómo lo recibes?">
-                  <div className="grid gap-2">
-                    <label className={`relative flex cursor-pointer gap-3 border p-4 ${fulfillment === "pickup" ? "border-ink bg-white" : "border-sand bg-paper"}`}>
-                      <input type="radio" name="fulfillment" className="sr-only" checked={fulfillment === "pickup"} onChange={() => setFulfillment("pickup")} />
-                      <span className={`mt-1 h-4 w-4 shrink-0 rounded-full border ${fulfillment === "pickup" ? "border-ink bg-ink shadow-[inset_0_0_0_3px_#f1f1ef]" : "border-slate bg-white"}`} aria-hidden="true" />
-                      <span>
-                        <span className="block font-display text-xl leading-tight text-ink">Recoger en el local</span>
-                        <span className="mt-1 block text-sm text-ink-deep">Pagas en tienda o por transferencia.</span>
-                      </span>
-                    </label>
-                    <label className={`relative flex cursor-pointer gap-3 border p-4 ${fulfillment === "delivery" ? "border-ink bg-white" : "border-sand bg-paper"}`}>
-                      <input type="radio" name="fulfillment" className="sr-only" checked={fulfillment === "delivery"} onChange={() => setFulfillment("delivery")} />
-                      <span className={`mt-1 h-4 w-4 shrink-0 rounded-full border ${fulfillment === "delivery" ? "border-ink bg-ink shadow-[inset_0_0_0_3px_#f1f1ef]" : "border-slate bg-white"}`} aria-hidden="true" />
-                      <span>
-                        <span className="block font-display text-xl leading-tight text-ink">Enviar</span>
-                        <span className="mt-1 block text-sm text-ink-deep">A la dirección que nos indiques.</span>
-                      </span>
-                    </label>
+                <div className="border border-sand bg-white p-4 text-sm leading-relaxed">
+                  <p className="font-display text-xl text-ink">Recoger en el local</p>
+                  <ul className="mt-2 space-y-1 text-ink-deep">
+                    {PICKUP_NOTES.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                  <div className="mt-3">
+                    <StoreInfo />
                   </div>
-                </FormBlock>
-                {fulfillment === "delivery" ? (
-                  <label className="block text-sm text-ink">
-                    Dirección
-                    <textarea required minLength={8} maxLength={300} value={address} onChange={(event) => setAddress(event.target.value)} className={fieldClass} rows={3} placeholder="Calle, número, colonia" />
-                  </label>
-                ) : (
-                  <div className="border border-sand bg-white p-4 text-sm">
-                    <p>Si pagas en tienda, el cobro es al recoger.</p>
-                    <div className="mt-3">
-                      <StoreInfo />
-                    </div>
-                  </div>
-                )}
+                </div>
                 <label className="block text-sm text-ink">
                   Nota
                   <textarea maxLength={400} value={note} onChange={(event) => setNote(event.target.value)} className={fieldClass} rows={2} placeholder="Alergias, dedicatoria o algún detalle" />
                 </label>
-                {fulfillment === "delivery" ? (
-                  <p className="border border-sand bg-white p-4 text-sm leading-relaxed text-ink-deep">
-                    El envío se paga por transferencia. Al hacerla, envía el pedido por WhatsApp junto con el comprobante.
-                  </p>
-                ) : null}
               </div>
               <div className="border-t border-sand bg-paper px-5 py-4">
                 {error ? <p role="alert" className="mb-3 text-sm text-[#b4332a]">{error}</p> : null}

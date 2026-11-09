@@ -1,5 +1,14 @@
+import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+
+function localAdminPassword(): string {
+  const source = readFileSync(new URL("../.dev.vars", import.meta.url), "utf8");
+  const line = source.split(/\r?\n/).find((item) => item.startsWith("ADMIN_PASSWORD="));
+  const password = line?.slice("ADMIN_PASSWORD=".length).trim();
+  if (!password) throw new Error("Falta ADMIN_PASSWORD en .dev.vars");
+  return password;
+}
 
 test("el menú se puede pedir por WhatsApp", async ({ page }) => {
   await page.goto("/");
@@ -21,17 +30,16 @@ test("el menú se puede pedir por WhatsApp", async ({ page }) => {
   await expect(dialog.getByText("2 × $480")).toBeVisible();
   await expect(dialog.getByText("Total", { exact: true })).toBeVisible();
   await expect(dialog.getByText("$960")).toBeVisible();
-  await dialog.getByText("Enviar", { exact: true }).click();
-  await expect(dialog.getByText("El envío se paga por transferencia. Al hacerla, envía el pedido por WhatsApp junto con el comprobante.")).toBeVisible();
-  await dialog.getByText("Recoger en el local", { exact: true }).click();
+  await expect(dialog.getByText("Solo recoger en el local. No hay envío a domicilio.")).toBeVisible();
   await dialog.getByLabel("Nombre").fill("Ana López");
   await dialog.getByLabel("Teléfono").fill("3121234567");
   await dialog.getByRole("group", { name: "Fecha para tu pedido" }).getByRole("radio").first().click();
   await dialog.getByRole("group", { name: "¿A qué hora quieres tu pedido?" }).getByRole("radio").first().click();
   await dialog.getByRole("button", { name: "Siguiente" }).click();
-  await dialog.getByText("Pagar en tienda", { exact: true }).click();
+  await expect(dialog.getByText("Anticipo del 50%")).toBeVisible();
+  await expect(dialog.getByText("$480")).toBeVisible();
   const popupPromise = page.waitForEvent("popup");
-  await dialog.getByRole("button", { name: "Siguiente" }).click();
+  await dialog.getByRole("button", { name: "Listo" }).click();
   const popup = await popupPromise;
   await expect(popup).toHaveURL(/wa\.me\/5213123769977/);
   expect(decodeURIComponent(popup.url())).toMatch(/Pastel de zanahoria|Pastel\+de\+zanahoria/);
@@ -42,7 +50,7 @@ test("el menú se puede pedir por WhatsApp", async ({ page }) => {
 
 test("el admin entra y ve los productos", async ({ page }) => {
   await page.goto("/admin");
-  await page.getByLabel("Contraseña").fill("amaria-local-admin");
+  await page.getByLabel("Contraseña").fill(localAdminPassword());
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page.getByRole("tab", { name: "Pedidos" })).toBeVisible();
   await page.getByRole("tab", { name: "Modificar menú" }).click();

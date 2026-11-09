@@ -26,14 +26,14 @@ export const orderSchema = z
       .max(30),
   })
   .superRefine((value, ctx) => {
-    if (value.fulfillment === "delivery" && (value.address ?? "").trim().length < 8) {
-      ctx.addIssue({ code: "custom", path: ["address"], message: "Escribe la dirección de envío" });
+    if (value.fulfillment !== "pickup") {
+      ctx.addIssue({ code: "custom", path: ["fulfillment"], message: "Por ahora solo se recogen pedidos en el local" });
     }
-    if (value.fulfillment === "delivery" && value.payment !== "transferencia") {
-      ctx.addIssue({ code: "custom", path: ["payment"], message: "El envío se paga por transferencia" });
+    if (value.payment !== "transferencia") {
+      ctx.addIssue({ code: "custom", path: ["payment"], message: "El anticipo se paga por transferencia" });
     }
     if (!isOrderSlot(value.scheduledDate, value.scheduledTime)) {
-      ctx.addIssue({ code: "custom", path: ["scheduledTime"], message: "Elige una hora dentro del horario del local" });
+      ctx.addIssue({ code: "custom", path: ["scheduledTime"], message: "Los pedidos se recogen a partir de 2 días, en el horario del local" });
     }
     value.items.forEach((item, index) => {
       for (const flavor of item.flavors ?? []) {

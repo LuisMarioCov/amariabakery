@@ -1,4 +1,4 @@
-import { formatFlavorCounts, formatSchedule, paymentSentence, type Order } from "../shared/catalog";
+import { depositCents, formatFlavorCounts, formatSchedule, PICKUP_NOTES, paymentSentence, type Order } from "../shared/catalog";
 import { Price } from "./Price";
 import { StoreMapLink } from "./StoreMapLink";
 
@@ -29,7 +29,7 @@ export function TicketView({ order }: { order: Order }) {
           </div>
         ) : null}
         <div>
-          <p className="text-slate">Entrega</p>
+          <p className="text-slate">{deliveryAddress ? "Entrega" : "Recogida"}</p>
           {deliveryAddress ? (
             <p className="mt-1 text-base">{deliveryAddress}</p>
           ) : (
@@ -66,8 +66,28 @@ export function TicketView({ order }: { order: Order }) {
         <span className="font-display text-2xl text-ink">Total</span>
         <Price cents={order.totalCents} className="text-2xl text-ink" />
       </p>
+      {order.fulfillment === "pickup" ? (
+        <div className="mt-4 space-y-1 text-sm">
+          <p className="flex items-baseline justify-between gap-4">
+            <span>Anticipo 50%</span>
+            <Price cents={depositCents(order.totalCents)} />
+          </p>
+          <p className="flex items-baseline justify-between gap-4">
+            <span>Resto al recoger</span>
+            <Price cents={order.totalCents - depositCents(order.totalCents)} />
+          </p>
+        </div>
+      ) : null}
       {order.note ? <p className="mt-5 text-sm leading-relaxed">Nota: {order.note}</p> : null}
-      <p className="mt-4 text-sm leading-relaxed">{paymentSentence(order.paymentMethod, order.fulfillment)}</p>
+      {order.fulfillment === "pickup" ? (
+        <ul className="mt-5 space-y-2 border-t border-sand pt-4 text-sm leading-relaxed text-ink-deep">
+          {PICKUP_NOTES.map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 text-sm leading-relaxed">{paymentSentence(order.paymentMethod, order.fulfillment)}</p>
+      )}
     </article>
   );
 }
