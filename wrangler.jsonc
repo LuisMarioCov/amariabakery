@@ -18,6 +18,10 @@
     "WHATSAPP_E164": "5213123769977",
     "INSTAGRAM_HANDLE": "amaria_bakery"
   },
+  "routes": [
+    { "pattern": "amariabakery.com", "custom_domain": true },
+    { "pattern": "www.amariabakery.com", "custom_domain": true }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

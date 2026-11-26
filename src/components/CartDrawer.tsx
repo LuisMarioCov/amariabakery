@@ -9,9 +9,9 @@ import { StoreInfo } from "./StoreInfo";
 const fieldClass = "mt-1.5 w-full border border-sand bg-white px-4 py-3.5 text-base text-ink-deep placeholder:text-slate";
 
 const TRANSFER_DETAILS = [
-  { label: "Banco", value: "BBVA" },
-  { label: "Titular", value: "Amaría Bakery" },
-  { label: "CLABE", value: "000000000000000000" },
+  { label: "Banco", value: "Banorte" },
+  { label: "Titular", value: "Carlos Del Razo Vargas" },
+  { label: "CLABE", value: "072090013031549316" },
 ] as const;
 
 function CopyIcon() {
@@ -220,7 +220,7 @@ export function CartDrawer() {
           ) : step === "bank" ? (
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
-                <FormBlock title="Anticipo del 50%" hint="Por ahora estos datos de transferencia son de ejemplo.">
+                <FormBlock title="Anticipo del 50%" hint="Transfiere el anticipo a esta cuenta.">
                   <p className="flex items-baseline justify-between gap-4 border border-sand bg-white px-4 py-3">
                     <span>A transferir</span>
                     <Price cents={depositCents(totalCents)} className="text-xl text-ink" />
